@@ -3,6 +3,7 @@ import './App.css';
 
 import Login from './Login';
 import useUserStore from './userStore';
+import InitializeWorkers from './workers/InitializeWorkers';
 
 const ApplicationList = React.lazy(()=>import('./ApplicationList'));
 const ActivateCode = React.lazy(()=>import('./ActivateCode'));
@@ -35,6 +36,7 @@ function App() {
           <AuthAndContent logout={logoutHandler} />
         </div>
       </header>
+      <InitializeWorkers />      
     </div>
   );
 }
