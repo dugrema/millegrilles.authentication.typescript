@@ -5,6 +5,8 @@ import Login from './Login';
 import useUserStore from './userStore';
 
 const ApplicationList = React.lazy(()=>import('./ApplicationList'));
+const ActivateCode = React.lazy(()=>import('./ActivateCode'));
+const AddSecurityDevice = React.lazy(()=>import('./AddSecurityDevice'));
 
 // let READY = true;
 
@@ -49,17 +51,17 @@ function AuthAndContent(props: AuthAndContentProps): JSX.Element {
 
   let [page, setPage] = useState('ApplicationList');
 
-  // let backHandler = useCallback(()=>{
-  //   setPage('');
-  // }, [setPage]);
+  let backHandler = useCallback(()=>{
+    setPage('');
+  }, [setPage]);
 
   if(!username) return <Login />
 
-  // if(page === 'PageA') {
-  //   return <PageA/>;
-  // } else if(page === 'PeculiarPage') {
-  //   return <PeculiarPage />;
-  // }
+  if(page === 'ActivateCode') {
+    return <ActivateCode back={backHandler} />;
+  } else if(page === 'AddSecurityDevice') {
+    return <AddSecurityDevice back={backHandler} />;
+  }
 
   return (
     <ApplicationList username={username} logout={props.logout} setPage={setPage} />

@@ -1,0 +1,37 @@
+{
+    "defaults": {
+      "domain": "MaitreDesComptes",
+      "exchange": "2.prive"
+    },
+    "requests": {
+      "listeApplicationsDeployeesXXX": {"domain": "CoreTopologie", "action": "listeApplicationsDeployees"},
+      "getRecoveryCsr": {"action": "getCsrRecoveryParcode"},
+      "getInfoUsagerXXX": {"action": "chargerUsager"}
+    },
+    "commands": {
+      "inscrireUsagerXXX": {"action": "inscrireUsager"},
+      "ajouterCsrRecoveryXXX": {"action": "ajouterCsrRecovery"},
+      "genererChallenge": {"action": "genererChallenge"},
+      "ajouterCleWebauthn": {"action": "ajouterCle"},
+      "signerCompteUsager": {"action": "signerCompteUsager"},
+      "activerDelegationParCleMillegrille": {"action": "ajouterDelegationSignee"}
+    },
+    "subscriptions": [
+        {
+            "subscribe": "ecouterEvenementsActivationFingerprint",
+            "unsubscribe": "retirerEvenementsActivationFingerprint",
+            "exchanges": ["2.prive"],
+            "routingKeys": [
+                "evenement.CoreMaitreDesComptes.{fingerprintPk}.activationFingerprintPk"
+            ]
+        },
+        {
+            "subscribe": "ecouterEvenementsCompteUsager",
+            "unsubscribe": "retirerEvenementsCompteUsager",
+            "exchanges": ["2.prive"],
+            "routingKeys": [
+                "evenement.CoreMaitreDesComptes.{USER_ID}.majCompteUsager"
+            ]
+        }
+    ]
+}
