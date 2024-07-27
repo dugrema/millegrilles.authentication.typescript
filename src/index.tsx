@@ -5,14 +5,31 @@ import App from './App';
 import * as serviceWorkerRegistration from './serviceWorkerRegistration';
 import reportWebVitals from './reportWebVitals';
 
+// Global imports
+import '@solana/webcrypto-ed25519-polyfill';
+
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
 );
 root.render(
   <React.StrictMode>
-    <App />
+    <React.Suspense fallback={<Loading />}>
+      <App />
+    </React.Suspense>
   </React.StrictMode>
 );
+
+function Loading() {
+  return (
+    <div className="App">
+      <header className="App-header text-slate-300 flex-1 content-center loading">
+        <h1 style={{'paddingTop': '1.5rem', 'paddingBottom': '1.7rem'}}>MilleGrilles</h1>
+        <p>The page is loading ...</p>
+        <div style={{height: '20vh'}}></div>
+      </header>
+    </div>
+  );
+}
 
 // If you want your app to work offline and load faster, you can change
 // unregister() to register() below. Note this comes with some pitfalls.
