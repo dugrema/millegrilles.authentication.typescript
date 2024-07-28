@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
+import Loading from './Loading';
 import * as serviceWorkerRegistration from './serviceWorkerRegistration';
 import reportWebVitals from './reportWebVitals';
 
@@ -21,19 +22,6 @@ root.render(
     </React.Suspense>
   </React.StrictMode>
 );
-
-function Loading() {
-  return (
-    <div className="App">
-      <header className="App-header loading App-loading">
-        <div>
-          <h1>MilleGrilles</h1>
-          <p>The page is loading ...</p>
-        </div>
-      </header>
-    </div>
-  );
-}
 
 // If you want your app to work offline and load faster, you can change
 // unregister() to register() below. Note this comes with some pitfalls.

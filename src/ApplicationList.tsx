@@ -6,14 +6,16 @@ import SwitchIcon from './resources/switch-svgrepo-com.svg';
 // import ForwardIcon from './resources/forward-svgrepo-com.svg';
 // import SetUpIcon from './resources/set-up-svgrepo-com.svg';
 import VersionInfo from './VersionInfo';
+import useUserStore from './connectionStore';
 
 type ApplicationListProps = {
-    username: string,
     logout: MouseEventHandler<MouseEvent>,
     setPage: Dispatch<string>,
 };
 
 function ApplicationList(props: ApplicationListProps) {
+
+    let username = useUserStore(state=>state.username);
 
     let {logout, setPage} = props;
 
@@ -31,7 +33,7 @@ function ApplicationList(props: ApplicationListProps) {
     return (
         <div>
             <div className='pb-4 font-semibold'>
-                <LanguagePopover /> {props.username}.
+                <LanguagePopover /> {username}.
             </div>
             <p className='text-3xl font-bold text-slate-400 pb-10'>MilleGrilles applications</p>
             <div className='grid grid-cols-1 px-4 md:px-20 lg:px-56 justify-items-center'>

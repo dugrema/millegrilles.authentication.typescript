@@ -1,6 +1,7 @@
 import React, {useState, useCallback, useEffect, MouseEventHandler, MouseEvent} from 'react';
 import './App.css';
 
+import Loading from './Loading';
 import Login from './Login';
 import InitializeWorkers from './workers/InitializeWorkers';
 import useWorkers from './workers/workers';
@@ -28,7 +29,7 @@ function App() {
     <div className="App">
       <header className="App-header h-screen text-slate-300 flex-1 content-center">
         <div className='overflow-scroll'>
-          <AuthAndContent logout={logoutHandler} />
+          <ContentRouter logout={logoutHandler} />
         </div>
       </header>
       <InitializeWorkers />      
@@ -42,9 +43,10 @@ type AuthAndContentProps = {
   logout: MouseEventHandler<MouseEvent>,
 }
 
-function AuthAndContent(props: AuthAndContentProps): JSX.Element {
+function ContentRouter(props: AuthAndContentProps): JSX.Element {
 
-  const username = useConnectionStore(state=>state.username);
+  let mustManuallyAuthenticate = useConnectionStore(state=>state.mustManuallyAuthenticate);
+  let connectionAuthenticated = useConnectionStore(state=>state.connectionAuthenticated);
 
   let [page, setPage] = useState('ApplicationList');
 
@@ -52,8 +54,11 @@ function AuthAndContent(props: AuthAndContentProps): JSX.Element {
     setPage('');
   }, [setPage]);
 
-  if(!username) return <Login />
+  // Override pages depending on authentication state
+  if(mustManuallyAuthenticate) return <Login />;
+  if(!connectionAuthenticated) return <Loading />;
 
+  // Routed pages
   if(page === 'ActivateCode') {
     return <ActivateCode back={backHandler} />;
   } else if(page === 'AddSecurityDevice') {
@@ -61,6 +66,6 @@ function AuthAndContent(props: AuthAndContentProps): JSX.Element {
   }
 
   return (
-    <ApplicationList username={username} logout={props.logout} setPage={setPage} />
-  )
+    <ApplicationList logout={props.logout} setPage={setPage} />
+  );
 }
