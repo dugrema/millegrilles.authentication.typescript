@@ -9,7 +9,6 @@ import useConnectionStore from "../connectionStore";
  * Initializes the Web Workers and a few other elements to connect to the back-end.
  */
 function InitializeWorkers() {
-  let workers = useWorkers();
   let workersReady = useConnectionStore((state) => state.workersReady);
   let workersRetry = useConnectionStore((state) => state.workersRetry);
   let incrementWorkersRetry = useConnectionStore(
@@ -22,6 +21,7 @@ function InitializeWorkers() {
   let setFiche = useConnectionStore((state) => state.setFiche);
   let setUsername = useConnectionStore((state) => state.setUsername);
   let setUserId = useConnectionStore((state) => state.setUserId);
+  let setUserSessionActive = useConnectionStore((state) => state.setUserSessionActive);
 
   let setConnectionReady = useConnectionStore(
     (state) => state.setConnectionReady
@@ -56,12 +56,19 @@ function InitializeWorkers() {
       throw error;
     }
 
-    return initWorkers(connectionCallback)
-      .then(async (result: InitWorkersResult) => {
+    return fetch('/auth/verifier_usager')
+      .then(async (verifUser: Response) => {
+        let userStatus = verifUser.status;
+        console.debug("User session status : %O", userStatus);
+        setUserSessionActive(userStatus === 200);
+
+        let result = await initWorkers(connectionCallback) as InitWorkersResult;
+        //.then(async (result: InitWorkersResult) => {
         // Success.
         setFiche(result.idmg, result.ca, result.chiffrage);
         // Set the worker state to ready, allows the remainder of the application to load.
         setWorkersReady(true);
+        //})
       })
       .catch((err: any) => {
         console.error(
@@ -85,23 +92,60 @@ function InitializeWorkers() {
     connectionCallback,
   ]);
 
-  useEffect(() => {
-    if (!workers) return;
-
-    // Start the connection.
-    workers.connection
-      .connect()
-      .then(() => {
-        console.debug("Connected");
-      })
-      .catch((err) => {
-        console.error("Connexion error", err);
-      });
-  }, [workers]);
-
   if (workerLoadingPromise && !workersReady) throw workerLoadingPromise;
 
-  return <span></span>;
+  return <MaintainConnection />;
 }
 
 export default InitializeWorkers;
+
+function MaintainConnection() {
+    let workers = useWorkers();
+    let connectionReady = useConnectionStore((state) => state.connectionReady);
+    let userSessionActive = useConnectionStore((state) => state.userSessionActive);
+    let username = useConnectionStore((state) => state.username);
+    let setMustManuallyAuthenticate = useConnectionStore((state) => state.setMustManuallyAuthenticate);
+
+    useEffect(() => {
+        if (!workers) return;
+  
+        // Start the connection.
+        workers.connection.connect()
+        .then(() => {
+            console.debug("Connected");
+        })
+        .catch((err) => {
+            console.error("Connexion error", err);
+        });
+
+    }, [workers]);
+
+    useEffect(() => {
+        if(!workers || !connectionReady) return;  // Waiting for a connection
+
+        if(!userSessionActive) {
+            // User session is not active. We need to manually authenticate.
+            setMustManuallyAuthenticate(true);
+            return;
+        }
+
+        // There is a user session (cookie).
+        if(username) {
+            // There is a username in the server session. 
+            // Check if we have a valid signing key/certificate for this user.
+            let signingKey = null;
+            if(signingKey) {
+                // Attempt authentication with the current connection.
+                throw new Error('todo');
+            } else {
+                // No key. We need to manually authenticate.
+                setMustManuallyAuthenticate(true);
+            }
+        }
+
+    }, [workers, connectionReady, userSessionActive, setMustManuallyAuthenticate]);
+
+  
+    return <span></span>
+  }
+  

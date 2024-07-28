@@ -9,9 +9,21 @@ export type ConnectionSocketioProps = {
 
 export type ConnectionCallbackParameters = {
     connected: boolean, 
+    authenticated?: boolean,
     username?: string, 
     userId?: string,
+    idmg?: string,
 };
+
+export type EmitWithAckProps = {
+    timeout?: number,
+    overrideConnected?: boolean,
+    noverif?: boolean,
+}
+
+export type EmitProps = {
+    overrideConnected?: boolean,
+}
 
 export default class ConnectionSocketio {
     url: string;
@@ -37,7 +49,7 @@ export default class ConnectionSocketio {
         this.opts = opts;
 
         // Wrap the callback to avoid a comlink error.
-        this.callback = (params) => callback(params);
+        this.callback = (params) => { callback(params); }
 
         // Initialize certificate/message validation store and cache
         this.certificateStore = new certificates.CertificateStore(ca);
@@ -82,6 +94,8 @@ export default class ConnectionSocketio {
 
     onConnect() {
         if(this.callback) this.callback({connected: true});
+        this.onConnectHandler()
+            .catch((err: Error)=>console.error("Connection error ", err));
     }
 
     onDisconnect(reason: string) {
@@ -91,6 +105,8 @@ export default class ConnectionSocketio {
 
     onReconnect() {
         if(this.callback) this.callback({connected: true});
+        this.onConnectHandler()
+            .catch((err: Error)=>console.error("Reconnection error ", err));
     }
 
     onReconnectAttempt() {
@@ -99,6 +115,29 @@ export default class ConnectionSocketio {
     onConnectError(err: Error) {
         if(this.callback) this.callback({connected: false});
         console.error("Connection error : ", err);
+    }
+
+    async onConnectHandler() {
+        // Pour la premiere connexion, infoPromise est le resultat d'une requete getEtatAuth.
+        const info = await this.emitWithAck('getEtatAuth', {}, {noverif: true, overrideConnected: true});
+        console.debug("onConnectHandler info ", info);
+        
+        if(this.callback) {
+            let params: ConnectionCallbackParameters = {connected: true, authenticated: info.auth};
+            if(info.username) params.username = info.username;
+            if(info.userId) params.userId = info.userId;
+            if(info.idmg) params.idmg = info.idmg;
+            this.callback(params);
+        }
+    
+        // // console.debug("connexionClient.onConnect %O", info)
+        // if(connexion.callbackSetUsager && info && info.nomUsager) {
+        //     // console.debug("connexionClient.onConnect setUsager %s", info.nomUsager)
+        //     await connexion.callbackSetUsager(info.nomUsager)
+        // } else {
+        //     // Indiquer qu'il n'y a pas de session usager
+        //     await connexion.callbackSetUsager(false)
+        // }
     }
 
     /**
@@ -174,6 +213,98 @@ export default class ConnectionSocketio {
         return await this.messageSigner.createResponse(content, timestamp);
     }
 
+    /**
+     * Methode principale pour emettre un message vers le serveur. Attend une confirmation/reponse.
+     * Le message tranmis est signe localement (sauf si inhibe) et la signature de la reponse est verifiee.
+     * @param {*} eventName 
+     * @param {*} args 
+     * @param {*} opts 
+     * @returns 
+     */
+    async emitWithAck(eventName: string, message?: Object, opts?: EmitWithAckProps) {
+        opts = opts || {}
+        if(!this.socket) throw new Error('The connection is not configured');
+        if(!eventName) throw new TypeError('Event name is null');
+
+        let timeoutDelay = opts.timeout || 9000;
+        let overrideConnected = opts.overrideConnected || false;
+
+        if(!overrideConnected && !this.socket.connected) throw new DisconnectedError("connexionClient.emitWithAck Deconnecte");
+
+        let request = this.socket.timeout(timeoutDelay) as any;
+        if(message) {
+            request = request.emitWithAck(eventName, message);
+        } else {
+            request = request.emitWithAck(eventName);
+        }
+
+        const response = await request as messageStruct.MilleGrillesMessage | Object;
+        if(response instanceof messageStruct.MilleGrillesMessage) {
+            return this.verifyResponse(response, opts);
+        } else {
+            // @ts-ignore
+            if(response.err) throw new Error(response.err);  // Server error
+            if(opts.noverif) return response;
+            else throw new Error("Invalid response");
+        }
+    }
+
+    /**
+     * Methode principale pour emettre un message vers le serveur. Attend une confirmation/reponse.
+     * Le message tranmis est signe localement (sauf si inhibe) et la signature de la reponse est verifiee.
+     * @param {*} eventName 
+     * @param {*} message 
+     * @param {*} opts 
+     * @returns 
+     */
+    async emit(eventName: string, message: Object, opts?: EmitProps) {
+        opts = opts || {}
+        if(!this.socket) throw new Error('pas configure');
+        if(!eventName) throw new TypeError('Event name is null');
+
+        let overrideConnected = opts.overrideConnected || false;
+
+        if(!overrideConnected && !this.socket.connected) throw new DisconnectedError();
+
+        if(message) {
+            this.socket.volatile.emit(eventName, message)
+        } else {
+            this.socket.volatile.emit(eventName)
+        }
+
+        return true
+    }
+
+    async verifyResponse(response: messageStruct.MilleGrillesMessage, opts?: any) {
+        opts = opts || {}
+    
+        if(opts.noverif) {
+            // No verification or parsing of the response.
+            return response
+        }
+    
+        if(response.sig && response.certificat) {
+            const certificateWrapper = await this.certificateStore?.verifyMessage(response);
+            // console.debug("Resultat validation : %O", resultat)
+            // Parse le contenu, conserver original
+            let content = response as any;
+            if(response.kind === 6) {
+                // console.info("Reponse chiffree %O", reponse)
+                throw new Error('todo - decrypt message');
+                // const contenuParsed = await dechiffrerMessage(response);
+                // content = contenuParsed;
+                // content['__original'] = response;
+            } else if(response.contenu) {
+                content = JSON.parse(response.contenu);
+                content['__original'] = response;
+            }
+            return content;
+        } else {
+            //console.warn("Reponse recue sans signature/cert : ", reponse)
+            // return reponse
+            throw new Error("Invalid response: the signature is missing");
+        }    
+    }    
 }
 
 /** Facade for the messageStruct create methods. */
@@ -192,5 +323,11 @@ class MessageFactory {
 
     async createResponse(content: Object, timestamp?: Date) {
         return await messageStruct.createResponse(this.signingKey, content, timestamp);
+    }
+}
+
+export class DisconnectedError extends Error {
+    constructor (reason?: string) {
+      super(reason)
     }
 }

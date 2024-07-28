@@ -10,11 +10,8 @@ const ApplicationList = React.lazy(()=>import('./ApplicationList'));
 const ActivateCode = React.lazy(()=>import('./ActivateCode'));
 const AddSecurityDevice = React.lazy(()=>import('./AddSecurityDevice'));
 
-// let READY = true;
-
 function App() {
 
-  // let [username, setUsername] = useState<string>('');
   const setUsername = useConnectionStore(state=>state.setUsername);
   const workersReady = useConnectionStore(state=>state.workersReady);
   const workers = useWorkers();
@@ -25,11 +22,6 @@ function App() {
 
   useEffect(()=>{
     if(!workersReady || !workers) return;
-    // workers.connection.ping()
-    //   .then((result: boolean)=>{
-    //     console.debug("Ping ", result);
-    //   })
-    //   .catch(err=>console.error("Error in ping: ", err))
   }, [workersReady, workers]);
 
   return (
