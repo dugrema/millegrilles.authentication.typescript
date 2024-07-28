@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { initWorkers, InitWorkersResult } from './workers';
 import useConnectionStore from "../connectionStore";
 
@@ -10,14 +10,16 @@ function InitializeWorkers() {
     let [retry, setRetry] = useState(true);
     let [retryCount, setRetryCount] = useState(0);
 
+    let workersReady = useConnectionStore(state=>state.workersReady);
     let setWorkersReady = useConnectionStore(state=>state.setWorkersReady);
-    let setIdmg = useConnectionStore(state=>state.setIdmg);
-    let setCa = useConnectionStore(state=>state.setCa);
+    let setFiche = useConnectionStore(state=>state.setFiche);
 
-    useEffect(()=>{
-      // Avoid loop
-      if(!retry) return;
+    // Load the workers with a useMemo that returns a Promise. Allows throwing the promise
+    // and catching it with the <React.Suspense> element in index.tsx.
+    let workerLoadingPromise = useMemo(()=>{
+      // Avoid loop, only load workers once.
       setRetry(false);
+      if(!retry || workersReady) return;
 
       // Stop loading the page when too many retries.
       if(retryCount > 4) {
@@ -27,11 +29,10 @@ function InitializeWorkers() {
         throw error;
       }
   
-      initWorkers()
+      return initWorkers()
         .then((result: InitWorkersResult)=>{
             // Success.
-            setIdmg(result.idmg);
-            setCa(result.ca);
+            setFiche(result.idmg, result.ca, result.chiffrage);
             // Set the worker state to ready, allows the remainder of the application to load.
             setWorkersReady(true);
         })
@@ -41,8 +42,10 @@ function InitializeWorkers() {
           setTimeout(()=>setRetry(true), 5_000);
         })
   
-    }, [retry, setRetry, retryCount, setRetryCount, setWorkersReady])
+    }, [retry, workersReady, setRetry, retryCount, setRetryCount, setWorkersReady])
   
+    if(workerLoadingPromise && !workersReady) throw workerLoadingPromise;
+
     return <span></span>
 }
 

@@ -32,15 +32,6 @@ function App() {
     //   .catch(err=>console.error("Error in ping: ", err))
   }, [workersReady, workers]);
 
-  // if(!READY) {
-  //   throw new Promise((resolve: any)=>{
-  //     setTimeout(()=>{
-  //       READY = true;
-  //       resolve();
-  //     }, 3_000)
-  //   })
-  // }
-
   return (
     <div className="App">
       <header className="App-header h-screen text-slate-300 flex-1 content-center">
