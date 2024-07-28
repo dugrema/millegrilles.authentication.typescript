@@ -1,9 +1,10 @@
-import React, {useState, useCallback, MouseEventHandler, MouseEvent} from 'react';
+import React, {useState, useCallback, useEffect, MouseEventHandler, MouseEvent} from 'react';
 import './App.css';
 
 import Login from './Login';
-import useUserStore from './userStore';
 import InitializeWorkers from './workers/InitializeWorkers';
+import useWorkers from './workers/workers';
+import useConnectionStore from "./connectionStore";
 
 const ApplicationList = React.lazy(()=>import('./ApplicationList'));
 const ActivateCode = React.lazy(()=>import('./ActivateCode'));
@@ -14,11 +15,22 @@ const AddSecurityDevice = React.lazy(()=>import('./AddSecurityDevice'));
 function App() {
 
   // let [username, setUsername] = useState<string>('');
-  const setUsername = useUserStore(state=>state.setUsername);
+  const setUsername = useConnectionStore(state=>state.setUsername);
+  const workersReady = useConnectionStore(state=>state.workersReady);
+  const workers = useWorkers();
 
   let logoutHandler: MouseEventHandler<MouseEvent> = useCallback(()=>{
     setUsername('');
   }, [setUsername]);
+
+  useEffect(()=>{
+    if(!workersReady || !workers) return;
+    // workers.connection.ping()
+    //   .then((result: boolean)=>{
+    //     console.debug("Ping ", result);
+    //   })
+    //   .catch(err=>console.error("Error in ping: ", err))
+  }, [workersReady, workers]);
 
   // if(!READY) {
   //   throw new Promise((resolve: any)=>{
@@ -49,7 +61,7 @@ type AuthAndContentProps = {
 
 function AuthAndContent(props: AuthAndContentProps): JSX.Element {
 
-  const username = useUserStore(state=>state.username);
+  const username = useConnectionStore(state=>state.username);
 
   let [page, setPage] = useState('ApplicationList');
 

@@ -1,10 +1,19 @@
 import {certificates} from "millegrilles.cryptography";
+import { Remote, wrap } from 'comlink';
+
+import { ConnectionWorkerInterface } from "./connection.worker";
 
 export type AppWorkers = {
-    connection: any,
+    connection: Remote<ConnectionWorkerInterface>,
 };
 
 let workers: AppWorkers | null = null;
+
+function useWorkers() {
+    return workers;
+}
+
+export default useWorkers;
 
 export type InitWorkersResult = {
     idmg: string,
@@ -15,14 +24,13 @@ export async function initWorkers(): Promise<InitWorkersResult> {
 
     let {idmg, ca} = await loadFiche();
 
-    workers = {
-        connection: {}
-    };
+    let worker = new Worker(new URL('./connection.worker.ts', import.meta.url));
+    let connection = wrap(worker) as Remote<ConnectionWorkerInterface>;
+
+    workers = {connection};
 
     return {idmg, ca, workers};
 }
-
-export default workers;
 
 type LoadFicheResult = {
     ca: string,

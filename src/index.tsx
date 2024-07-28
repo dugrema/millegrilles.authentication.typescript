@@ -7,6 +7,7 @@ import reportWebVitals from './reportWebVitals';
 
 // Global imports
 import '@solana/webcrypto-ed25519-polyfill';
+import ErrorBoundary from './ErrorBoundary';
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
@@ -14,7 +15,9 @@ const root = ReactDOM.createRoot(
 root.render(
   <React.StrictMode>
     <React.Suspense fallback={<Loading />}>
-      <App />
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
     </React.Suspense>
   </React.StrictMode>
 );

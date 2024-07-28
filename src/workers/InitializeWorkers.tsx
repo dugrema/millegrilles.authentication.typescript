@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { initWorkers, InitWorkersResult } from './init';
+import { initWorkers, InitWorkersResult } from './workers';
 import useConnectionStore from "../connectionStore";
 
 /**
@@ -8,6 +8,7 @@ import useConnectionStore from "../connectionStore";
 function InitializeWorkers() {
 
     let [retry, setRetry] = useState(true);
+    let [retryCount, setRetryCount] = useState(0);
 
     let setWorkersReady = useConnectionStore(state=>state.setWorkersReady);
     let setIdmg = useConnectionStore(state=>state.setIdmg);
@@ -17,8 +18,15 @@ function InitializeWorkers() {
       // Avoid loop
       if(!retry) return;
       setRetry(false);
+
+      // Stop loading the page when too many retries.
+      if(retryCount > 4) {
+        let error = new Error('Too many retries');
+        // @ts-ignore
+        error.code = 1; error.retryCount = retryCount;
+        throw error;
+      }
   
-      console.info("Initializing web workers");
       initWorkers()
         .then((result: InitWorkersResult)=>{
             // Success.
@@ -28,11 +36,12 @@ function InitializeWorkers() {
             setWorkersReady(true);
         })
         .catch((err: any)=>{
-          console.error("Error initializing web workers. Retrying in 15 seconds.", err);
-          setTimeout(()=>setRetry(true), 15_000);
+          console.error("Error initializing web workers. Retrying in 5 seconds.", err);
+          setRetryCount(retryCount+1);
+          setTimeout(()=>setRetry(true), 5_000);
         })
   
-    }, [retry, setRetry, setWorkersReady])
+    }, [retry, setRetry, retryCount, setRetryCount, setWorkersReady])
   
     return <span></span>
 }
