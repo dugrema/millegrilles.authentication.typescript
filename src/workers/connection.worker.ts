@@ -1,14 +1,29 @@
-import {expose} from 'comlink';
-// import { digest, encryption, random, multiencoding, certificates, ed25519, messageStruct, x25519 } from 'millegrilles.cryptography';
+import { expose } from 'comlink';
 import '@solana/webcrypto-ed25519-polyfill';
+import ConnectionSocketio, { ConnectionSocketioProps, ConnectionCallbackParameters } from './connectionV3';
 
-async function ping(): Promise<boolean> {
-    console.debug("Ping");
-    return false;
+export class AuthenticationConnectionWorker {
+    connection?: ConnectionSocketio;
+
+    constructor() {
+    }
+
+    async connect() {
+        return this.connection?.connect();
+    }
+
+    async initialize(serverUrl: string, ca: string, callback: (params: ConnectionCallbackParameters) => void, opts?: ConnectionSocketioProps): Promise<boolean> {
+        this.connection = new ConnectionSocketio(serverUrl, ca, callback, opts);
+        return true;
+    }
+    
+    async ping(): Promise<boolean> {
+        console.debug("Ping");
+        if(!this.connection) return false;
+        return true;
+    }
+    
 }
 
-export interface ConnectionWorkerInterface {
-    ping(): Promise<boolean>,
-}
-
-expose({ping});
+var worker = new AuthenticationConnectionWorker();
+expose(worker);

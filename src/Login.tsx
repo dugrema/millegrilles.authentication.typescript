@@ -1,7 +1,7 @@
 import {Dispatch, useState, useMemo, useCallback} from 'react';
 import LanguageIcon from './resources/language-svgrepo-com.svg';
 import VersionInfo from './VersionInfo';
-import useUserStore from './userStore';
+import useUserStore from './connectionStore';
 
 const CLASSNAME_BUTTON_PRIMARY = `
     transition ease-in-out 

@@ -1,11 +1,14 @@
 import {certificates} from "millegrilles.cryptography";
 import { Remote, wrap } from 'comlink';
 
-import { ConnectionWorkerInterface } from "./connection.worker";
+import { AuthenticationConnectionWorker } from "./connection.worker";
+import { ConnectionCallbackParameters } from "./connectionV3";
 
 export type AppWorkers = {
-    connection: Remote<ConnectionWorkerInterface>,
+    connection: Remote<AuthenticationConnectionWorker>,
 };
+
+const SOCKETIO_PATH = '/millegrilles/socket.io';
 
 let workers: AppWorkers | null = null;
 
@@ -21,12 +24,16 @@ export type InitWorkersResult = {
     chiffrage: Array<Array<string>>,
     workers: AppWorkers,
 }
-export async function initWorkers(): Promise<InitWorkersResult> {
+
+export async function initWorkers(callback: (params: ConnectionCallbackParameters) => void): Promise<InitWorkersResult> {
 
     let {idmg, ca, chiffrage} = await loadFiche();
 
     let worker = new Worker(new URL('./connection.worker.ts', import.meta.url));
-    let connection = wrap(worker) as Remote<ConnectionWorkerInterface>;
+    let connection = wrap(worker) as Remote<AuthenticationConnectionWorker>;
+
+    // Set-up the workers
+    await connection.initialize(SOCKETIO_PATH, ca, callback);
 
     workers = {connection};
 
@@ -63,6 +70,6 @@ async function loadFiche(): Promise<LoadFicheResult> {
     return {idmg, ca, chiffrage};
 }
 
-export function connect() {
-
+export async function connect() {
+    await workers?.connection.connect();
 }

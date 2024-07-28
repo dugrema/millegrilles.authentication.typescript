@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, FormEventHandler } from 'react';
 import { FileInput } from 'flowbite-react';
-import useUserStore from './userStore';
+import useUserStore from './connectionStore';
 
 
 type ActivateCodeProps = {
