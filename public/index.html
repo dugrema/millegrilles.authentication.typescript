@@ -37,21 +37,31 @@
         font-weight: 700;
         font-size: 1.875rem;
         line-height: 2.25rem;
-        margin: 0;
-        border-width: 0;
-        padding: 0;
       }
       BODY {margin: 0;}
+      .App {
+        text-align: center;
+      }
+      .App-header {
+        background: rgb(2,0,36);
+        background: linear-gradient(336deg, rgba(2,0,36,1) 0%, rgba(58,63,116,1) 80%, rgba(21,20,44,1) 100%);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        min-height: 100vh;
+      }
+      .App-loading H1 {
+        margin-bottom: 1rem;
+      }
     </style>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="root">
-      <header class="loading">
+    <div id="root" class="App">
+      <header class="App-header loading">
         <div>
-          <h1 style="padding-top: 2.5rem; padding-bottom: 0.8rem;">MilleGrilles</h1>
+          <h1>MilleGrilles</h1>
           <p>The page is loading ..</p>
-          <div style="height: 20vh"></div>
         </div>
       </header>
     </div>

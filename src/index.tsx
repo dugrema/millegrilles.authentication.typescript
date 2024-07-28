@@ -25,10 +25,11 @@ root.render(
 function Loading() {
   return (
     <div className="App">
-      <header className="App-header text-slate-300 flex-1 content-center loading">
-        <h1 style={{'paddingTop': '1.5rem', 'paddingBottom': '1.7rem'}}>MilleGrilles</h1>
-        <p>The page is loading ...</p>
-        <div style={{height: '20vh'}}></div>
+      <header className="App-header loading App-loading">
+        <div>
+          <h1>MilleGrilles</h1>
+          <p>The page is loading ...</p>
+        </div>
       </header>
     </div>
   );
