@@ -1,34 +1,40 @@
 import { io, Socket } from 'socket.io-client';
 import { certificates, ed25519, messageStruct } from 'millegrilles.cryptography';
 
-export type ConnectionSocketioProps = {
+const CONST_TRANSPORTS = ['websocket', 'polling'];
 
+export type ConnectionSocketioProps = {
+    reconnectionDelay?: number;
 };
 
 export type ConnectionCallbackParameters = {
     connected: boolean, 
     username?: string, 
     userId?: string,
-}
+};
 
 export default class ConnectionSocketio {
-    serverUrl: string;
+    url: string;
+    serverUrl?: string;
+    params?: {path: string, reconnection: boolean, transports: Array<string>, reconnectionDelay?: number};
     connectionParams?: {};
     messageSigner?: MessageFactory;
     socket?: Socket;
     certificateStore?: certificates.CertificateStore;
     callback?: (params: ConnectionCallbackParameters) => void;
+    opts?: ConnectionSocketioProps;
 
     /**
      * 
-     * @param serverUrl 
+     * @param url 
      * @param ca 
      * @param callback Function to callback when a change occurs (e.g. connect, disconnect, authenticated).
      * @param opts 
      */
-    constructor(serverUrl: string, ca: string, callback: (params: ConnectionCallbackParameters) => void, opts?: ConnectionSocketioProps) {
+    constructor(url: string, ca: string, callback: (params: ConnectionCallbackParameters) => void, opts?: ConnectionSocketioProps) {
         opts = opts || {};
-        this.serverUrl = serverUrl;
+        this.url = url;
+        this.opts = opts;
 
         // Wrap the callback to avoid a comlink error.
         this.callback = (params) => callback(params);
@@ -36,13 +42,96 @@ export default class ConnectionSocketio {
         // Initialize certificate/message validation store and cache
         this.certificateStore = new certificates.CertificateStore(ca);
         this.certificateStore.cache = new certificates.CertificateCache(20);
+
+        this.configureConnection();
+    }
+
+    configureConnection() {
+        let urlInfo = new URL(this.url);
+        let pathSocketio = urlInfo.pathname;
+        this.serverUrl = `https://${urlInfo.hostname}`;
+
+        let transports = CONST_TRANSPORTS;
+
+        this.params = {
+            path: pathSocketio,
+            reconnection: false,
+            transports,
+        };
+
+        if(this.opts?.reconnectionDelay) {
+            this.params.reconnection = true;
+            this.params.reconnectionDelay = this.opts.reconnectionDelay;
+        }
+
+        console.info("ConnexionSocketio Server : %s, Params %O", this.serverUrl, this.params);
+        this.socket = io(this.serverUrl, this.params);
+
+        this.bindSocketioEventHandlers()
+    }
+
+    bindSocketioEventHandlers() {
+        if(!this.socket) throw new Error('Socket not initialized');
+
+        this.socket.on('connect', () => this.onConnect())
+        this.socket.io.on('reconnect_attempt', () => this.onReconnectAttempt())
+        this.socket.io.on('reconnect', () => this.onReconnect())
+        this.socket.on('disconnect', reason => this.onDisconnect(reason))
+        this.socket.on('connect_error', err => this.onConnectError(err))
+    }
+
+    onConnect() {
+        if(this.callback) this.callback({connected: true});
+    }
+
+    onDisconnect(reason: string) {
+        if(this.callback) this.callback({connected: false});
+        console.warn("Disconnected, reason : ", reason);
+    }
+
+    onReconnect() {
+        if(this.callback) this.callback({connected: true});
+    }
+
+    onReconnectAttempt() {
+    }
+
+    onConnectError(err: Error) {
+        if(this.callback) this.callback({connected: false});
+        console.error("Connection error : ", err);
     }
 
     /**
      * Connects the socket to the server.
      */
     async connect() {
-        if(this.callback) this.callback({connected: true, username: 'dummy'});
+        if(!this.socket) throw new Error('Socketio is not configured');
+        if(this.socket.connected) return true
+
+        return new Promise((resolve, reject)=>{
+            // Workaround si aucun callback
+            const timeoutConnexion = setTimeout(()=>{
+                if(this.socket?.connected) return resolve(true);
+                else reject('Connection timeout');
+            }, 5_000);
+
+            const callbackHandler = (err?: Error) => {
+                clearTimeout(timeoutConnexion)
+                if(err) return reject(err)
+                resolve(true)
+            }
+
+            this.socket?.on('connect', () => {
+                callbackHandler();
+            })
+
+            this.socket?.on('connect_error', (err: Error) => {
+                callbackHandler(err);
+            })
+
+            this.socket?.connect();
+        })
+    
     }
 
     async maintenance() {

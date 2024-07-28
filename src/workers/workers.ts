@@ -33,7 +33,9 @@ export async function initWorkers(callback: (params: ConnectionCallbackParameter
     let connection = wrap(worker) as Remote<AuthenticationConnectionWorker>;
 
     // Set-up the workers
-    await connection.initialize(SOCKETIO_PATH, ca, callback);
+    let serverUrl = new URL(window.location.href);
+    serverUrl.pathname = SOCKETIO_PATH;
+    await connection.initialize(serverUrl.href, ca, callback, {reconnectionDelay: 7500});
 
     workers = {connection};
 
