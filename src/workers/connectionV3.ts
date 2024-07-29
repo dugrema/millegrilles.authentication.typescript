@@ -25,6 +25,12 @@ export type EmitProps = {
     overrideConnected?: boolean,
 }
 
+export type RoutedMessageProps = {
+    partition?: string,
+    nowait?: boolean,
+    noverif?: boolean,
+}
+
 export default class ConnectionSocketio {
     url: string;
     serverUrl?: string;
@@ -173,6 +179,13 @@ export default class ConnectionSocketio {
     
     }
 
+    /**
+     * Disconnect then reconnect. Used to load a new user session (new auth cookie).
+     */
+    async reconnect() {
+        throw new Error('todo');
+    }
+
     async maintenance() {
         this.certificateStore?.cache.maintain()
             .catch(err=>{
@@ -185,8 +198,8 @@ export default class ConnectionSocketio {
      * @param signingKey A user's private key
      * @param certificate A user's certificate
      */
-    prepareMessageFactory(signingKey: ed25519.MessageSigningKey, certificate: Array<string>) {
-        this.messageSigner = new MessageFactory(signingKey, certificate);
+    prepareMessageFactory(signingKey: ed25519.MessageSigningKey) {
+        this.messageSigner = new MessageFactory(signingKey);
     }
 
     /**
@@ -221,7 +234,7 @@ export default class ConnectionSocketio {
      * @param {*} opts 
      * @returns 
      */
-    async emitWithAck(eventName: string, message?: Object, opts?: EmitWithAckProps) {
+    async emitWithAck(eventName: string, message: Object | null, opts?: EmitWithAckProps) {
         opts = opts || {}
         if(!this.socket) throw new Error('The connection is not configured');
         if(!eventName) throw new TypeError('Event name is null');
@@ -238,8 +251,8 @@ export default class ConnectionSocketio {
             request = request.emitWithAck(eventName);
         }
 
-        const response = await request as messageStruct.MilleGrillesMessage | Object;
-        if(response instanceof messageStruct.MilleGrillesMessage) {
+        const response = await request as any;
+        if(response.sig) {
             return this.verifyResponse(response, opts);
         } else {
             // @ts-ignore
@@ -297,6 +310,7 @@ export default class ConnectionSocketio {
             } else if(response.contenu) {
                 content = JSON.parse(response.contenu);
                 content['__original'] = response;
+                content['__certificate'] = certificateWrapper;
             }
             return content;
         } else {
@@ -304,7 +318,46 @@ export default class ConnectionSocketio {
             // return reponse
             throw new Error("Invalid response: the signature is missing");
         }    
-    }    
+    }
+
+    async sendRequest(message: Object, domain: string, action: string, partition?: string, props?: EmitWithAckProps): Promise<messageStruct.MilleGrillesMessage> {
+        let routing: {domain: string, action: string, partition?: string} = {domain, action};
+        if(partition) routing.partition = partition;
+        let request = await this.messageSigner?.createRoutedMessage(messageStruct.MessageKind.Request, message, routing, new Date());
+        if(!request) throw new Error("Error generating request: null");
+        let eventName = [domain, action].join('_');
+        return await this.emitWithAck(eventName, request, props);
+    }
+
+    async sendCommand(message: Object, domain: string, action: string, partition?: string, props?: EmitWithAckProps): Promise<messageStruct.MilleGrillesMessage> {
+        let routing: {domain: string, action: string, partition?: string} = {domain, action};
+        if(partition) routing.partition = partition;
+        let request = await this.messageSigner?.createRoutedMessage(messageStruct.MessageKind.Request, message, routing, new Date());
+        if(!request) throw new Error("Error generating request: null");
+        let eventName = [domain, action].join('_');
+        return await this.emitWithAck(eventName, request, props);
+    }
+
+    async authenticate() {
+        // Faire une requete pour upgrader avec le certificat
+        let challengeResponse = await this.emitWithAck('genererChallengeCertificat', null, {noverif: true});
+        console.debug("reactjs.connexionClient.Authentifier Challenge : ", challengeResponse)
+    
+        // Repondre pour creer l'upgrade
+        let data = {...challengeResponse.challengeCertificat};
+
+        console.debug("reactjs.connexionClient.Authentifier Upgrade : ", data)
+        let authenticationResponse = await this.sendCommand(data, 'login', 'upgrade');
+        // const reponseUpgrade = await this.emitWithAck('upgrade', data, 
+        //     {kind: MESSAGE_KINDS.KIND_COMMANDE, domaine: 'login', action: 'login', attacherCertificat: true})
+
+        console.debug("reactjs.connexionClient.Authentifier Reponse upgrade ", authenticationResponse)
+        // if(!noCallback && reponseUpgrade.nomUsager && connexion.callbackSetUsager) {
+        //     connexion.callbackSetUsager(reponseUpgrade.nomUsager)
+        // }
+        
+        // return authenticationResponse
+    }
 }
 
 /** Facade for the messageStruct create methods. */
@@ -312,9 +365,9 @@ class MessageFactory {
     signingKey: ed25519.MessageSigningKey;
     certificate: Array<string> | null;
 
-    constructor(signingKey: ed25519.MessageSigningKey, certificate: Array<string>) {
+    constructor(signingKey: ed25519.MessageSigningKey) {
         this.signingKey = signingKey;
-        this.certificate = certificate;
+        this.certificate = signingKey.getChain();
     }
 
     async createRoutedMessage(kind: messageStruct.MessageKind, content: Object, routing: messageStruct.Routage, timestamp?: Date) {

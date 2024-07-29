@@ -4,6 +4,7 @@ import './App.css';
 import Loading from './Loading';
 import Login from './Login';
 import InitializeWorkers from './workers/InitializeWorkers';
+import InitializeIdb from './idb/InitializeIdb';
 import useWorkers from './workers/workers';
 import useConnectionStore from "./connectionStore";
 
@@ -18,7 +19,8 @@ function App() {
   const workers = useWorkers();
 
   let logoutHandler: MouseEventHandler<MouseEvent> = useCallback(()=>{
-    setUsername('');
+    // setUsername('');
+    window.location.href = '/auth/deconnecter_usager';
   }, [setUsername]);
 
   useEffect(()=>{
@@ -32,7 +34,8 @@ function App() {
           <ContentRouter logout={logoutHandler} />
         </div>
       </header>
-      <InitializeWorkers />      
+      <InitializeWorkers />
+      <InitializeIdb />
     </div>
   );
 }
@@ -53,6 +56,8 @@ function ContentRouter(props: AuthAndContentProps): JSX.Element {
   let backHandler = useCallback(()=>{
     setPage('');
   }, [setPage]);
+
+  console.debug("ContentRouter mustManuallyAuthenticate %O, connectionAuthenticated %O", mustManuallyAuthenticate, connectionAuthenticated);
 
   // Override pages depending on authentication state
   if(mustManuallyAuthenticate) return <Login />;
