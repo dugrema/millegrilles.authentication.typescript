@@ -61,6 +61,7 @@ function createObjectStores(db: IDBPDatabase, oldVersion?: number) {
         case 0:
             db.createObjectStore(STORE_USERS, {keyPath: 'nomUsager'});
             db.createObjectStore(STORE_KEYS, {keyPath: 'hachage_bytes'});
+        // @ts-ignore Fallthrough
         case 1:
         case 2: // Plus recent, rien a faire
             break
@@ -152,14 +153,14 @@ export async function maintenance(username: string, maxAge?: number) {
     if(!username) return;
 
     maxAge = maxAge || MAX_AGE_DEFAULT;  
-    const expirationDate = new Date(new Date().getTime() - maxAge);
+    // const expirationDate = new Date(new Date().getTime() - maxAge);
 
     throw new Error('todo - fix me');
 
-    await Promise.all([
-        // entretienCacheClesSecretes(nomUsager, tempsExpiration, opts),
-        // entretienCacheFichiersDechiffres(tempsExpiration, opts),
-    ])
+    // await Promise.all([
+    //     // entretienCacheClesSecretes(nomUsager, tempsExpiration, opts),
+    //     // entretienCacheFichiersDechiffres(tempsExpiration, opts),
+    // ])
 }
 
 // async function entretienCacheClesSecretes(expirationTime: Date) {

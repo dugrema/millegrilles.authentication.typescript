@@ -14,14 +14,12 @@ const AddSecurityDevice = React.lazy(()=>import('./AddSecurityDevice'));
 
 function App() {
 
-  const setUsername = useConnectionStore(state=>state.setUsername);
   const workersReady = useConnectionStore(state=>state.workersReady);
   const workers = useWorkers();
 
   let logoutHandler: MouseEventHandler<MouseEvent> = useCallback(()=>{
-    // setUsername('');
     window.location.href = '/auth/deconnecter_usager';
-  }, [setUsername]);
+  }, []);
 
   useEffect(()=>{
     if(!workersReady || !workers) return;

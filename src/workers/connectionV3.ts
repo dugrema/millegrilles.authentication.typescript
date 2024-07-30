@@ -21,6 +21,14 @@ export type EmitWithAckProps = {
     noverif?: boolean,
 }
 
+export type SendProps = {
+    timeout?: number,
+    overrideConnected?: boolean,
+    noverif?: boolean,
+    partition?: string,
+    attachments?: Object
+}
+
 export type EmitProps = {
     overrideConnected?: boolean,
 }
@@ -30,6 +38,14 @@ export type RoutedMessageProps = {
     nowait?: boolean,
     noverif?: boolean,
 }
+
+export type MessageResponse = {
+    ok?: boolean,
+    err?: string,
+    __original?: messageStruct.MilleGrillesMessage,
+    __certificate?: certificates.CertificateWrapper,
+};
+
 
 export default class ConnectionSocketio {
     url: string;
@@ -320,43 +336,38 @@ export default class ConnectionSocketio {
         }    
     }
 
-    async sendRequest(message: Object, domain: string, action: string, partition?: string, props?: EmitWithAckProps): Promise<messageStruct.MilleGrillesMessage> {
+    async sendRequest(message: Object, domain: string, action: string, props?: SendProps): Promise<MessageResponse> {
         let routing: {domain: string, action: string, partition?: string} = {domain, action};
-        if(partition) routing.partition = partition;
+        if(props?.partition) routing.partition = props.partition;
         let request = await this.messageSigner?.createRoutedMessage(messageStruct.MessageKind.Request, message, routing, new Date());
         if(!request) throw new Error("Error generating request: null");
+        if(props?.attachments) request.attachements = props.attachments;
         let eventName = [domain, action].join('_');
         return await this.emitWithAck(eventName, request, props);
     }
 
-    async sendCommand(message: Object, domain: string, action: string, partition?: string, props?: EmitWithAckProps): Promise<messageStruct.MilleGrillesMessage> {
+    async sendCommand(message: Object, domain: string, action: string, props?: SendProps): Promise<MessageResponse> {
         let routing: {domain: string, action: string, partition?: string} = {domain, action};
-        if(partition) routing.partition = partition;
-        let request = await this.messageSigner?.createRoutedMessage(messageStruct.MessageKind.Request, message, routing, new Date());
-        if(!request) throw new Error("Error generating request: null");
+        if(props?.partition) routing.partition = props.partition;
+        let command = await this.messageSigner?.createRoutedMessage(messageStruct.MessageKind.Request, message, routing, new Date());
+        if(!command) throw new Error("Error generating command: null");
+        if(props?.attachments) command.attachements = props.attachments;
         let eventName = [domain, action].join('_');
-        return await this.emitWithAck(eventName, request, props);
+        return await this.emitWithAck(eventName, command, props);
     }
 
-    async authenticate() {
+    async authenticate(apiMapping?: Object) {
         // Faire une requete pour upgrader avec le certificat
         let challengeResponse = await this.emitWithAck('genererChallengeCertificat', null, {noverif: true});
         console.debug("reactjs.connexionClient.Authentifier Challenge : ", challengeResponse)
     
-        // Repondre pour creer l'upgrade
         let data = {...challengeResponse.challengeCertificat};
 
         console.debug("reactjs.connexionClient.Authentifier Upgrade : ", data)
-        let authenticationResponse = await this.sendCommand(data, 'login', 'upgrade');
-        // const reponseUpgrade = await this.emitWithAck('upgrade', data, 
-        //     {kind: MESSAGE_KINDS.KIND_COMMANDE, domaine: 'login', action: 'login', attacherCertificat: true})
+        let authenticationResponse = await this.sendCommand(data, 'authentication', 'authenticate', {attachments: {apiMapping: apiMapping}});
 
         console.debug("reactjs.connexionClient.Authentifier Reponse upgrade ", authenticationResponse)
-        // if(!noCallback && reponseUpgrade.nomUsager && connexion.callbackSetUsager) {
-        //     connexion.callbackSetUsager(reponseUpgrade.nomUsager)
-        // }
-        
-        // return authenticationResponse
+        return authenticationResponse.ok === true;
     }
 }
 
@@ -379,8 +390,4 @@ class MessageFactory {
     }
 }
 
-export class DisconnectedError extends Error {
-    constructor (reason?: string) {
-      super(reason)
-    }
-}
+export class DisconnectedError extends Error {}

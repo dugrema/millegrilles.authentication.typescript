@@ -3,19 +3,19 @@
       "domain": "MaitreDesComptes",
       "exchange": "2.prive"
     },
-    "requests": {
-      "listeApplicationsDeployeesXXX": {"domain": "CoreTopologie", "action": "listeApplicationsDeployees"},
-      "getRecoveryCsr": {"action": "getCsrRecoveryParcode"},
-      "getInfoUsagerXXX": {"action": "chargerUsager"}
-    },
-    "commands": {
-      "inscrireUsagerXXX": {"action": "inscrireUsager"},
-      "ajouterCsrRecoveryXXX": {"action": "ajouterCsrRecovery"},
-      "genererChallenge": {"action": "genererChallenge"},
-      "ajouterCleWebauthn": {"action": "ajouterCle"},
-      "signerCompteUsager": {"action": "signerCompteUsager"},
-      "activerDelegationParCleMillegrille": {"action": "ajouterDelegationSignee"}
-    },
+    "requests": [
+      {"domain": "CoreTopologie", "action": "listeApplicationsDeployees"},
+      {"action": "getCsrRecoveryParcode"},
+      {"action": "chargerUsager"}
+    ],
+    "commands": [
+      {"action": "inscrireUsager"},
+      {"action": "ajouterCsrRecovery"},
+      {"action": "genererChallenge"},
+      {"action": "ajouterCle"},
+      {"action": "signerCompteUsager"},
+      {"action": "ajouterDelegationSignee"}
+    ],
     "subscriptions": [
         {
             "subscribe": "ecouterEvenementsActivationFingerprint",

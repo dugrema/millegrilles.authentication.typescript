@@ -2,12 +2,10 @@ import { expose } from 'comlink';
 import '@solana/webcrypto-ed25519-polyfill';
 import { forgeCsr, ed25519, messageStruct } from 'millegrilles.cryptography'
 import ConnectionSocketio, { ConnectionSocketioProps, ConnectionCallbackParameters } from './connectionV3';
+import apiMapping from '../resources/apiMapping.json';
 
 export class AuthenticationConnectionWorker {
     connection?: ConnectionSocketio;
-
-    constructor() {
-    }
 
     async connect() {
         return this.connection?.connect();
@@ -41,12 +39,13 @@ export class AuthenticationConnectionWorker {
 
     async registerAccount(username: string, csr: string): Promise<{ok?: boolean, certificat?: Array<string>}> {
         if(!this.connection) throw new Error("Connection is not initialized");
-        return await this.connection.emitWithAck('inscrireUsager', {nomUsager: username, csr});
+        return await this.connection.emitWithAck('authentication_register', {nomUsager: username, csr});
     }
 
     async authenticate() {
+        console.debug("Mapping ! ", apiMapping);
         if(!this.connection) throw new Error("Connection is not initialized");
-        return await this.connection.authenticate();
+        return await this.connection.authenticate(apiMapping);
     }
 
     /**
