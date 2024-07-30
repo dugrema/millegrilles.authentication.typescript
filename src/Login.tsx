@@ -4,7 +4,7 @@ import LanguageIcon from './resources/language-svgrepo-com.svg';
 import VersionInfo from './VersionInfo';
 import useConnectionStore from './connectionStore';
 import useWorkers, { AppWorkers } from './workers/workers';
-import { getUser, getUsersList, updateUser } from './idb/userStoreIdb';
+import { getUser, getUsersList, updateUser, UserCertificateRequest } from './idb/userStoreIdb';
 import { multiencoding, certificates, messageStruct } from 'millegrilles.cryptography';
 
 const CLASSNAME_BUTTON_PRIMARY = `
@@ -153,7 +153,7 @@ function UserRegistrationScreen(props: UserRegistrationScreenProps) {
 
     let workers = useWorkers();
     let setMustManuallyAuthenticate = useConnectionStore((state) => state.setMustManuallyAuthenticate);
-    //let setConnectionAuthenticated = useConnectionStore((state) => state.setConnectionAuthenticated);
+    let setConnectionAuthenticated = useConnectionStore((state) => state.setConnectionAuthenticated);
 
     let username = props.username;
 
@@ -162,15 +162,18 @@ function UserRegistrationScreen(props: UserRegistrationScreenProps) {
         e.stopPropagation();
         if(!workers) throw Error("Workers not initialized");
         registerUser(workers, username)
-            .then(async result =>{
-                console.debug("User registered: ", result);
-                throw new Error('todo - reconnect');
-                setMustManuallyAuthenticate(false);
+            .then(async response =>{
+                if(response.authenticated) {
+                    setMustManuallyAuthenticate(false);
+                    setConnectionAuthenticated(true);
+                } else {
+                    throw new Error("Registration / authentication failed");
+                }
             })
             .catch(err=>{
                 console.error("Error registering user", err);
             })
-    }, [workers, username]);
+    }, [workers, username, setConnectionAuthenticated, setMustManuallyAuthenticate]);
 
     return (
         <form onSubmit={handleRegistration}>
@@ -364,10 +367,7 @@ async function userLoginVerification(username: string, fingerprintPkCourant?: st
 //     return {nomUsager, infoUsager, authentifie}
 // }
 
-async function registerUser(workers: AppWorkers, username: string) {
-    console.debug("Register ", username)
-    // Get userId if available
-    let userId: string | undefined = undefined;
+async function createCertificateRequest(workers: AppWorkers, username: string, userId?: string): Promise<UserCertificateRequest> {
     let request = await workers?.connection.createCertificateRequest(username, userId);
     console.debug("Certificate request : ", request);
 
@@ -381,31 +381,62 @@ async function registerUser(workers: AppWorkers, username: string) {
         publicKeyString, 
         privateKeyPem: request.privateKeyPem
     };
+
     await updateUser({username, request: requestEntry});
 
+    return requestEntry
+}
+
+async function registerUser(workers: AppWorkers, username: string) {
+    console.debug("Register ", username)
+    // Get userId if available
+    let userId: string | undefined = undefined;
+    let certificateRequest = await createCertificateRequest(workers, username, userId);
+    // let request = await workers?.connection.createCertificateRequest(username, userId);
+    // console.debug("Certificate request : ", request);
+
+    // // Save the new CSR and private key in IDB.
+    // let publicKeyString = multiencoding.encodeHex(request.publicKey);
+
+    // let requestEntry = {
+    //     pem: request.pem, 
+    //     publicKey: request.publicKey, 
+    //     privateKey: request.privateKey, 
+    //     publicKeyString, 
+    //     privateKeyPem: request.privateKeyPem
+    // };
+    // await updateUser({username, request: requestEntry});
+
     // Register the user account
-    let response = await workers.connection.registerAccount(username, request.pem);
+    let response = await workers.connection.registerAccount(username, certificateRequest.pem);
     console.debug("Response : ", response);
 
     if(response.ok !== true || !response.certificat) {
         throw new Error("Registration error");
     }
 
+    // Get the newly generated certificate chain. The last one is the CA, remove it from the chain.
     let certificate = response.certificat;
     let ca = certificate.pop();
 
     let certificateEntry = {
         certificate,
-        publicKey: request.publicKey,
-        privateKey: request.privateKey,
-        publicKeyString,
+        publicKey: certificateRequest.publicKey,
+        privateKey: certificateRequest.privateKey,
+        publicKeyString: certificateRequest.publicKeyString,
     };
     await updateUser({
         username, certificate: certificateEntry,
         request: undefined, // Remove previous request
         // legacy
-        ca, certificat: certificate, clePriveePem: request.privateKeyPem,
+        ca, certificat: certificate, clePriveePem: certificateRequest.privateKeyPem,
     });
+
+    // Activate the server session
+    await performLogin(workers, username);
+    
+    // Authenticate the connection worker
+    return await authenticateConnectionWorker(workers, username, true);
 }
 
 type PerformLoginResult = {
@@ -438,7 +469,13 @@ async function performLogin(workers: AppWorkers, username: string): Promise<Perf
             let now = new Date();
             if(now > expiration) {
                 // The certificate is expired. Remove it and generate new request.
-                throw new Error('todo - remove certificate, generate new CSR');
+                updateUser({
+                    username, certificate: undefined, 
+                    // Legacy
+                    certificat: undefined, clePriveePem: undefined, ca: undefined,
+                });
+                let userId: string | undefined = undefined;  // TODO : get userId
+                await createCertificateRequest(workers, username, userId);
             }
             // Check if the certificate is about to expire (>2/3 duration)
             let notBefore = wrapper.certificate.notBefore;
@@ -449,7 +486,8 @@ async function performLogin(workers: AppWorkers, username: string): Promise<Perf
 
             if(now > canRenew) {
                 // Generate a new certificate request
-                throw new Error('todo - generate new CSR');
+                let userId: string | undefined = undefined;  // TODO : get userId
+                await createCertificateRequest(workers, username, userId);
             }
         }
     }
@@ -481,26 +519,15 @@ type AuthenticationResponseType = {
 async function certificateAuthentication(workers: AppWorkers, challenge: string, sessionDuration?: number): Promise<AuthenticationResponseType> {
     let data = {certificate_challenge: challenge, activation: true, dureeSession: sessionDuration};
     // Sign as a command
-    // MESSAGE_KINDS.KIND_COMMANDE, data, {domaine: 'auth', action: 'authentifier_usager', ajouterCertificat: true}
     let command = await workers.connection.signAuthentication(data);
-    console.debug("Auth command with challenge : ", command);
     let authenticationResult = await axios.post('/auth/authentifier_usager', command);
-    console.debug("Authentication result ", authenticationResult);
     let responseMessage = authenticationResult.data as messageStruct.MilleGrillesMessage;
     let authenticationResponse = JSON.parse(responseMessage.contenu) as AuthenticationResponseType;
     return authenticationResponse
 }
 
 async function authenticateConnectionWorker(workers: AppWorkers, username: string, userSessionActive: boolean): Promise<PerformLoginResult> {
-    // let workers = useWorkers();
-    // let connectionReady = useConnectionStore((state) => state.connectionReady);
-    // let userSessionActive = useConnectionStore((state) => state.userSessionActive);
-    // let username = useConnectionStore((state) => state.username);
-    // let setMustManuallyAuthenticate = useConnectionStore((state) => state.setMustManuallyAuthenticate);
-
     if(!workers) return {};  // Waiting for a connection
-
-    console.debug("userSessionActive %s, username: %s", userSessionActive, username);
 
     if(!userSessionActive || !username) {
         // User session is not active. We need to manually authenticate.
@@ -513,7 +540,6 @@ async function authenticateConnectionWorker(workers: AppWorkers, username: strin
     let userDbInfo = await getUser(username)
     if(!userDbInfo) {
         // No local information (certificate). 
-        // setMustManuallyAuthenticate(true);
         return { mustManuallyAuthenticate: true };
     }
 
@@ -531,7 +557,8 @@ async function authenticateConnectionWorker(workers: AppWorkers, username: strin
     if(now > expiration) {
         // The certificate is expired. Remove it, generate a new CSR and force manual authentication.
         await updateUser({username, certificate: undefined});
-        throw new Error('todo - Generate new CSR');
+        let userId: string | undefined = undefined;  // TODO : get userId
+        await createCertificateRequest(workers, username, userId);
         return { mustManuallyAuthenticate: true };
     }
 
