@@ -5,7 +5,16 @@ import { ConnectionWorker, MessageResponse } from './connectionV3';
 import '@solana/webcrypto-ed25519-polyfill';
 import apiMapping from '../resources/apiMapping.json';
 
-export type AuthenticationChallengeType = any;
+export type AuthenticationChallengeType = {
+    publicKey: {
+        allowCredentials?: Array<{id: string, type: string}>,
+        challenge: string,
+        rpId?: string,
+        timeout?: number,
+        userVerification?: string,
+    },
+
+};
 export type DelegationChallengeType = any;
 export type RegistrationChallengeType = {
     publicKey: {

@@ -35,6 +35,7 @@ function Login() {
     let [error, setError] = useState('');
     let [mainOpacity, setMainOpacity] = useState('opacity-100');
     let [register, setRegister] = useState(false);
+    let [webauthnChallenge, setWebauthnChallenge] = useState<PrepareAuthenticationResult>();
 
     let handleLogin = useCallback((e: React.FormEvent<HTMLInputElement|HTMLFormElement> | null)=>{
         e?.preventDefault();
@@ -51,7 +52,7 @@ function Login() {
         }
 
         performLogin(workers, username)
-            .then(result=>{
+            .then(async result=>{
                 // Set the username for the overall application
                 setUsernameStore(username);
                 if(result.register) {
@@ -59,6 +60,9 @@ function Login() {
                 } else if(result.authenticated) {
                     setMustManuallyAuthenticate(false);
                     setConnectionAuthenticated(true);
+                } else if(result.webauthnChallenge) {
+                    let preparedChallenge = await prepareAuthentication(username, result.webauthnChallenge, null, false);
+                    setWebauthnChallenge(preparedChallenge);
                 }
             })
             .catch(err=>{
@@ -105,16 +109,22 @@ function Login() {
         setRegister(false);
     }, [setRegister]);
 
+    let closeWebauthnScreen = useCallback(()=>{
+        setWebauthnChallenge(undefined);
+    }, [setWebauthnChallenge]);
+
+    // Determine which part of the login process to render
+    let pageContent;
+    if(register) pageContent = <UserRegistrationScreen username={username} back={closeRegister} />;
+    else if(webauthnChallenge) pageContent = <WebauthnChallengeScreen username={username} back={closeWebauthnScreen} webauthnChallenge={webauthnChallenge} />;
+    else pageContent = <UserInputScreen username={username} usernameOnChange={usernameOnChangeHandler} handleLogin={handleLogin} />;
+
     return (
         <div className={'transition-opacity duration-1000 grid grid-cols-1 justify-items-center ' + mainOpacity}>
             <h1 className='text-3xl font-bold text-slate-400'>MilleGrilles</h1>
 
-            {register?
-                <UserRegistrationScreen username={username} back={closeRegister} />
-            :
-                <UserInputScreen username={username} usernameOnChange={usernameOnChangeHandler} handleLogin={handleLogin} />
-            }
-            
+            {pageContent}
+
             <Message error={error} setError={setError} />
             <VersionInfo />
         </div>
@@ -190,6 +200,51 @@ function UserRegistrationScreen(props: UserRegistrationScreenProps) {
             </div>
         </form>
     );
+}
+
+type WebauthnChallengeScreenProps = {
+    username: string,
+    back(e: any): void,
+    webauthnChallenge: PrepareAuthenticationResult,
+}
+
+function WebauthnChallengeScreen(props: WebauthnChallengeScreenProps) {
+
+    let username = props.username;
+    let webauthnChallenge = props.webauthnChallenge;
+    let sessionDuration = 3600;  // Todo propagate session duration
+
+    let workers = useWorkers();
+
+    let setMustManuallyAuthenticate = useConnectionStore((state) => state.setMustManuallyAuthenticate);
+    let setConnectionAuthenticated = useConnectionStore((state) => state.setConnectionAuthenticated);
+
+    let loginHandler = useCallback(()=>{
+        console.debug("Log in with ", webauthnChallenge);
+        if(!workers) throw new Error("Workers not initialized");
+        authenticate(workers, username, webauthnChallenge.demandeCertificat, webauthnChallenge.publicKey, sessionDuration)
+            .then(()=>{
+                setConnectionAuthenticated(true);
+                setMustManuallyAuthenticate(false);
+            })
+            .catch(err=>console.error("Error logging in ", err));
+    }, [workers, username, webauthnChallenge, sessionDuration]);
+
+    return (
+        <div className='MessageBox grid grid-cols-3 min-w-80 max-w-lg border-4 border-slate-500 shadow-2xl rounded-xl p-8 bg-slate-900 text-slate-300 justify-items-end'>
+
+            <p className='col-span-3 text-left'>
+                The user account {props.username} is protected by security devices. 
+                Click on the Next button and follow the steps on the screen to log in.
+            </p>
+
+            <div className='flex min-w-full col-span-3 justify-center mt-10'>
+                <button onClick={loginHandler} className={CLASSNAME_BUTTON_PRIMARY}>Next</button>
+                <button className={CLASSNAME_BUTTON_PRIMARY} onClick={props.back}>Cancel</button>
+            </div>
+
+        </div>
+    )
 }
 
 type UserSelectionProps = {
@@ -292,14 +347,16 @@ type CredentialsType = {
     type: string,
 };
 
+type AuthenticationChallengePublicKeyType = {
+    allowCredentials?: Array<CredentialsType>,
+    challenge: string,
+    rpId?: string,
+    timeout?: number,
+    userVerification?: 'string',
+};
+
 type AuthenticationChallengeType = {
-    publicKey?: {
-        allowCredentials?: Array<CredentialsType>,
-        challenge: string,
-        rpId?: string,
-        timeout?: number,
-        userVerification?: 'string',
-    },
+    publicKey?: AuthenticationChallengePublicKeyType,
 };
 
 type UserLoginVerificationResult = {
@@ -335,39 +392,6 @@ async function userLoginVerification(username: string, fingerprintPkCourant?: st
     }
 }
 
-// export async function chargerUsager(nomUsager, fingerprintPk, fingerprintCourant, opts) {
-//     opts = opts || {}
-//     const hostname = window.location.hostname
-//     const data = {
-//         nomUsager, hostname, 
-//         ...opts, 
-//         fingerprintPkNouveau: fingerprintPk, fingerprintPkCourant: fingerprintCourant
-//     }
-//     const reponse = await axios({method: 'POST', url: '/auth/get_usager', data, timeout: 20_000})
-//     const reponseEnveloppe = reponse.data
-//     const infoUsager = JSON.parse(reponseEnveloppe.contenu)
-//     // console.debug("chargerUsager Reponse ", infoUsager)
-//     const authentifie = infoUsager?infoUsager.auth:false
-
-//     const infoUsagerDefault = infoUsager || {}
-
-//     const certificat = infoUsagerDefault.certificat
-//     if(certificat) {
-//         // Mettre a jour le certificat
-//         const usager = await usagerDao.getUsager(nomUsager)
-//         const requete = usager.requete
-//         if(requete) {
-//             const { clePriveePem, fingerprintPk } = requete
-//             // Extraire le certificat
-//             const dataAdditionnel = {clePriveePem, fingerprintPk}
-//             console.info("Mettre a jour le certificat de %s", nomUsager)
-//             await sauvegarderCertificatPem(nomUsager, certificat, dataAdditionnel)
-//         }
-//     }
-
-//     return {nomUsager, infoUsager, authentifie}
-// }
-
 async function createCertificateRequest(workers: AppWorkers, username: string, userId?: string): Promise<UserCertificateRequest> {
     let request = await workers?.connection.createCertificateRequest(username, userId);
     console.debug("Certificate request : ", request);
@@ -393,20 +417,6 @@ async function registerUser(workers: AppWorkers, username: string) {
     // Get userId if available
     let userId: string | undefined = undefined;
     let certificateRequest = await createCertificateRequest(workers, username, userId);
-    // let request = await workers?.connection.createCertificateRequest(username, userId);
-    // console.debug("Certificate request : ", request);
-
-    // // Save the new CSR and private key in IDB.
-    // let publicKeyString = multiencoding.encodeHex(request.publicKey);
-
-    // let requestEntry = {
-    //     pem: request.pem, 
-    //     publicKey: request.publicKey, 
-    //     privateKey: request.privateKey, 
-    //     publicKeyString, 
-    //     privateKeyPem: request.privateKeyPem
-    // };
-    // await updateUser({username, request: requestEntry});
 
     // Register the user account
     let response = await workers.connection.registerAccount(username, certificateRequest.pem);
@@ -446,6 +456,7 @@ type PerformLoginResult = {
     mustManuallyAuthenticate?: boolean,
     authenticated?: boolean,
     userId?: string,
+    webauthnChallenge?: AuthenticationChallengeType,
 }
 
 async function performLogin(workers: AppWorkers, username: string): Promise<PerformLoginResult> {
@@ -504,7 +515,7 @@ async function performLogin(workers: AppWorkers, username: string): Promise<Perf
             return {authenticated: authenticationResponse.auth, userId: authenticationResponse.userId};
         } else {
             // Determine if we can authenticate with a security device (webauth).
-            throw new Error("todo - webauth");
+            return { webauthnChallenge: loginInfo.authentication_challenge }
         }
     } else {
         // User does not exist. Allow registration of the unassigned username.
@@ -571,4 +582,123 @@ async function authenticateConnectionWorker(workers: AppWorkers, username: strin
     await workers.connection.authenticate();
 
     return { authenticated: true };
+}
+
+type PrepareAuthenticationResult = {
+    publicKey: AuthenticationChallengePublicKeyType, 
+    demandeCertificat: any, 
+    challengeReference: string,
+};
+
+async function prepareAuthentication(username: string, challengeWebauthn: AuthenticationChallengeType, requete: any, activationTierce: boolean): Promise<PrepareAuthenticationResult> {
+    console.debug("Preparer authentification avec : ", challengeWebauthn)
+    if(!challengeWebauthn.publicKey) throw new Error("Challenge without the publicKey field");
+
+    const challengeReference = challengeWebauthn.publicKey.challenge
+    const publicKey = {...challengeWebauthn.publicKey} as any
+
+    // Decoder les champs base64url
+    publicKey.challenge = multiencoding.decodeBase64Url(publicKey.challenge);
+    publicKey.allowCredentials = challengeWebauthn.publicKey.allowCredentials?.map(cred=>{
+        const idBytes = multiencoding.decodeBase64Url(cred.id);
+        return {
+            ...cred,
+            id: idBytes
+        }
+    });
+
+    let demandeCertificat = null
+    // if(requete) {
+    //     const csr = requete.csr || requete
+    //     // console.debug("On va hacher le CSR et utiliser le hachage dans le challenge pour faire une demande de certificat")
+    //     // if(props.appendLog) props.appendLog(`On va hacher le CSR et utiliser le hachage dans le challenge pour faire une demande de certificat`)
+    //     demandeCertificat = {
+    //         nomUsager: username,
+    //         csr,
+    //         date: Math.floor(new Date().getTime()/1000)
+    //     }
+    //     if(activationTierce === true) demandeCertificat.activationTierce = true
+    //     const hachageDemandeCert = await hacherMessage(demandeCertificat, {bytesOnly: true, hashingCode: 'blake2s-256'})
+    //     console.debug("Hachage demande cert %O = %O, ajouter au challenge existant de : %O", hachageDemandeCert, demandeCertificat, publicKey.challenge)
+        
+    //     // Concatener le challenge recu (32 bytes) au hachage de la commande
+    //     // Permet de signer la commande de demande de certificat avec webauthn
+    //     const challengeMaj = new Uint8Array(64)
+    //     challengeMaj.set(publicKey.challenge, 0)
+    //     challengeMaj.set(hachageDemandeCert, 32)
+    //     publicKey.challenge = challengeMaj
+
+    //     console.debug("Challenge override pour demander signature certificat : %O", publicKey.challenge)
+    // } 
+
+    const resultat = { publicKey, demandeCertificat, challengeReference }
+    console.debug("Prep publicKey/demandeCertificat : %O", resultat)
+    
+    return resultat
+}
+
+async function authenticate(workers: AppWorkers, username: string, demandeCertificat: any, publicKey: any, sessionDuration?: number): Promise<AuthenticationResponseType> {
+    // N.B. La methode doit etre appelee par la meme thread que l'event pour supporter
+    //      TouchID sur iOS.
+    console.debug("Signer challenge : %O (opts: %O)", publicKey)
+
+    const data = await signAuthenticationRequest(username, demandeCertificat, publicKey, sessionDuration);
+
+    console.debug("Data a soumettre pour reponse webauthn : %O", data)
+    const resultatAuthentification = await axios.post('/auth/authentifier_usager', data)
+    console.debug("Resultat authentification : %O", resultatAuthentification)
+    const reponse = resultatAuthentification.data
+    const contenu = JSON.parse(reponse.contenu) as AuthenticationResponseType;
+
+    if(contenu.auth && contenu.userId) {
+
+        // Activate the server session
+        await performLogin(workers, username);
+        
+        // Authenticate the connection worker
+        return await authenticateConnectionWorker(workers, username, true);
+    } else {
+        throw new Error("WebAuthn.authentifier Erreur authentification")
+    }
+}
+
+type SignAuthenticationResult = {
+    nomUsager: string, 
+    demandeCertificat?: any, 
+    dureeSession?: number,
+};
+
+export async function signAuthenticationRequest(username: string, demandeCertificat: any, publicKey: any, sessionDuration?: number): Promise<SignAuthenticationResult> {
+    // const connexion = opts.connexion
+    // N.B. La methode doit etre appelee par la meme thread que l'event pour supporter
+    //      TouchID sur iOS.
+    console.debug("Signer challenge pour %s (demandeCertificat %O, publicKey: %O)", username, demandeCertificat, publicKey)
+   
+    const publicKeyCredentialSignee = await navigator.credentials.get({publicKey}) as any
+    console.debug("PublicKeyCredential signee : %O", publicKeyCredentialSignee)
+    
+    const reponseSignee = publicKeyCredentialSignee.response
+
+    const reponseSerialisable = {
+        id64: multiencoding.encodeBase64Url(new Uint8Array(publicKeyCredentialSignee.rawId)),
+        response: {
+            authenticatorData: reponseSignee.authenticatorData?multiencoding.encodeBase64Url(new Uint8Array(reponseSignee.authenticatorData)):null,
+            clientDataJSON: reponseSignee.clientDataJSON?multiencoding.encodeBase64Url(new Uint8Array(reponseSignee.clientDataJSON)):null,
+            signature: reponseSignee.signature?multiencoding.encodeBase64Url(new Uint8Array(reponseSignee.signature)):null,
+            userHandle: reponseSignee.userHandle?multiencoding.encodeBase64Url(new Uint8Array(reponseSignee.userHandle)):null,
+        },
+        type: publicKeyCredentialSignee.type,
+    }
+
+    console.debug("Reponse serialisable : %O", reponseSerialisable)
+
+    const data = {
+        nomUsager: username, 
+        demandeCertificat, 
+        webauthn: reponseSerialisable, 
+        challenge: publicKey.challenge
+    } as SignAuthenticationResult;
+    if(sessionDuration) data.dureeSession = sessionDuration;
+
+    return data
 }
