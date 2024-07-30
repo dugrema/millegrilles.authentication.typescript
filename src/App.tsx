@@ -2,7 +2,7 @@ import React, {useState, useCallback, useEffect, MouseEventHandler, MouseEvent} 
 import './App.css';
 
 import Loading from './Loading';
-import Login from './Login';
+import Login, { authenticateConnectionWorker } from './Login';
 import InitializeWorkers from './workers/InitializeWorkers';
 import InitializeIdb from './idb/InitializeIdb';
 import useWorkers from './workers/workers';
@@ -34,6 +34,7 @@ function App() {
       </header>
       <InitializeWorkers />
       <InitializeIdb />
+      <InitialAuthenticationCheck />
     </div>
   );
 }
@@ -71,4 +72,48 @@ function ContentRouter(props: AuthAndContentProps): JSX.Element {
   return (
     <ApplicationList logout={props.logout} setPage={setPage} />
   );
+}
+
+let promiseInitialCheck: Promise<void> | null = null;
+
+function InitialAuthenticationCheck() {
+
+    let workers = useWorkers();
+
+    let [initialCheck, setInitialCheck] = useState(true);
+
+    let usernameStore = useConnectionStore(state=>state.username);
+    let connectionReady = useConnectionStore((state) => state.connectionReady);
+    let userSessionActive = useConnectionStore((state) => state.userSessionActive);
+    let setMustManuallyAuthenticate = useConnectionStore((state) => state.setMustManuallyAuthenticate);
+    let setConnectionAuthenticated = useConnectionStore((state) => state.setConnectionAuthenticated);
+
+    useEffect(()=>{
+        console.debug("Login workers %O, connectionReady: %O", workers, connectionReady);
+        if(!initialCheck || !workers || !connectionReady) return;
+
+        promiseInitialCheck = authenticateConnectionWorker(workers, usernameStore, userSessionActive)
+            .then(result=>{
+                console.debug("Result of authenticateConnectionWorker : ", result);
+                if(result.mustManuallyAuthenticate) {
+                    setMustManuallyAuthenticate(true);
+                    return;
+                } else if(result.authenticated) {
+                    setMustManuallyAuthenticate(false);
+                    setConnectionAuthenticated(true);
+                }
+            })
+            .catch(err=>{
+                console.error("Authentication error ", err);
+                setMustManuallyAuthenticate(true);
+            })
+            .finally(()=>{
+                setInitialCheck(false);
+                promiseInitialCheck = null;
+            });
+    }, [workers, initialCheck, usernameStore, userSessionActive, connectionReady, setMustManuallyAuthenticate, setConnectionAuthenticated]);
+
+    if(promiseInitialCheck) throw promiseInitialCheck;
+
+    return <span></span>;
 }

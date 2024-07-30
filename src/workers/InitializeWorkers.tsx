@@ -40,8 +40,6 @@ function InitializeWorkers() {
             if(params.authenticated !== undefined && !params.authenticated) {
                 console.debug("setMustManuallyAuthenticate to true");
                 setMustManuallyAuthenticate(true);
-            } else {
-                setMustManuallyAuthenticate(true);
             }
         });
     }, [setConnectionReady, setMustManuallyAuthenticate, setUsername, setUserId, setUserSessionActive]);

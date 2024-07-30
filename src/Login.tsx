@@ -24,10 +24,10 @@ function Login() {
     console.debug("Login Page render");
 
     let workers = useWorkers();
-    let usernameStore = useConnectionStore(state=>state.username);
+//    let usernameStore = useConnectionStore(state=>state.username);
     let setUsernameStore = useConnectionStore(state=>state.setUsername);
-    let connectionReady = useConnectionStore((state) => state.connectionReady);
-    let userSessionActive = useConnectionStore((state) => state.userSessionActive);
+    // let connectionReady = useConnectionStore((state) => state.connectionReady);
+    // let userSessionActive = useConnectionStore((state) => state.userSessionActive);
     let setMustManuallyAuthenticate = useConnectionStore((state) => state.setMustManuallyAuthenticate);
     let setConnectionAuthenticated = useConnectionStore((state) => state.setConnectionAuthenticated);
 
@@ -77,28 +77,28 @@ function Login() {
         
     }, [workers, username, setMainOpacity, setUsernameStore, setRegister]);
 
-    useEffect(()=>{
-        console.debug("Login workers %O, connectionReady: %O", workers, connectionReady);
-        if(!workers || !connectionReady) return;
+    // useEffect(()=>{
+    //     console.debug("Login workers %O, connectionReady: %O", workers, connectionReady);
+    //     if(!workers || !connectionReady) return;
 
-        authenticateConnectionWorker(workers, usernameStore, userSessionActive)
-            .then(result=>{
-                console.debug("Result of authenticateConnectionWorker : ", result);
-                if(result.mustManuallyAuthenticate) {
-                    setMustManuallyAuthenticate(true);
-                    return;
-                }
+    //     authenticateConnectionWorker(workers, usernameStore, userSessionActive)
+    //         .then(result=>{
+    //             console.debug("Result of authenticateConnectionWorker : ", result);
+    //             if(result.mustManuallyAuthenticate) {
+    //                 setMustManuallyAuthenticate(true);
+    //                 return;
+    //             }
 
-                if(result.authenticated) {
-                    setMustManuallyAuthenticate(false);
-                    setConnectionAuthenticated(true);
-                }
-            })
-            .catch(err=>{
-                console.error("Authentication error ", err);
-                setMustManuallyAuthenticate(true);
-            });
-    }, [workers, usernameStore, userSessionActive, connectionReady, setMustManuallyAuthenticate, setConnectionAuthenticated]);
+    //             if(result.authenticated) {
+    //                 setMustManuallyAuthenticate(false);
+    //                 setConnectionAuthenticated(true);
+    //             }
+    //         })
+    //         .catch(err=>{
+    //             console.error("Authentication error ", err);
+    //             setMustManuallyAuthenticate(true);
+    //         });
+    // }, [workers, usernameStore, userSessionActive, connectionReady, setMustManuallyAuthenticate, setConnectionAuthenticated]);
 
     let usernameOnChangeHandler = useCallback((e: React.FormEvent<HTMLInputElement>) => {
         setError('');
@@ -538,7 +538,7 @@ async function certificateAuthentication(workers: AppWorkers, challenge: string,
     return authenticationResponse
 }
 
-async function authenticateConnectionWorker(workers: AppWorkers, username: string, userSessionActive: boolean): Promise<PerformLoginResult> {
+export async function authenticateConnectionWorker(workers: AppWorkers, username: string, userSessionActive: boolean): Promise<PerformLoginResult> {
     if(!workers) return {};  // Waiting for a connection
 
     if(!userSessionActive || !username) {
