@@ -56,7 +56,7 @@ function ContentRouter(props: AuthAndContentProps): JSX.Element {
     setPage('');
   }, [setPage]);
 
-  console.debug("ContentRouter mustManuallyAuthenticate %O, connectionAuthenticated %O", mustManuallyAuthenticate, connectionAuthenticated);
+  // console.debug("ContentRouter mustManuallyAuthenticate %O, connectionAuthenticated %O", mustManuallyAuthenticate, connectionAuthenticated);
 
   // Override pages depending on authentication state
   if(mustManuallyAuthenticate) return <Login />;
@@ -75,7 +75,12 @@ function ContentRouter(props: AuthAndContentProps): JSX.Element {
 }
 
 let promiseInitialCheck: Promise<void> | null = null;
-
+/**
+ * This element is used for the initial loading of the app. Check if the user is
+ * already logged in. Don't mark setMustManuallyAuthenticate(true) if the 
+ * auto authentication works.
+ * @returns 
+ */
 function InitialAuthenticationCheck() {
 
     let workers = useWorkers();
@@ -89,12 +94,10 @@ function InitialAuthenticationCheck() {
     let setConnectionAuthenticated = useConnectionStore((state) => state.setConnectionAuthenticated);
 
     useEffect(()=>{
-        console.debug("Login workers %O, connectionReady: %O", workers, connectionReady);
         if(!initialCheck || !workers || !connectionReady) return;
 
         promiseInitialCheck = authenticateConnectionWorker(workers, usernameStore, userSessionActive)
             .then(result=>{
-                console.debug("Result of authenticateConnectionWorker : ", result);
                 if(result.mustManuallyAuthenticate) {
                     setMustManuallyAuthenticate(true);
                     return;
@@ -105,15 +108,16 @@ function InitialAuthenticationCheck() {
             })
             .catch(err=>{
                 console.error("Authentication error ", err);
-                setMustManuallyAuthenticate(true);
+                setMustManuallyAuthenticate(true);  // Shows the <Login> page.
             })
             .finally(()=>{
+                // Cleanup to prevent InitialAuthenticationCheck from running again.
                 setInitialCheck(false);
                 promiseInitialCheck = null;
             });
     }, [workers, initialCheck, usernameStore, userSessionActive, connectionReady, setMustManuallyAuthenticate, setConnectionAuthenticated]);
 
-    if(promiseInitialCheck) throw promiseInitialCheck;
+    if(promiseInitialCheck) throw promiseInitialCheck;  // Shows <Loading> page with <React.Suspend> in index.tsx.
 
     return <span></span>;
 }

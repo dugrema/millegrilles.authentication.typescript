@@ -143,9 +143,9 @@ async function addMethod(workers: AppWorkers, username: string, publicKey: strin
 async function respondRegistrationChallenge(username: string, challengeWebauthn: any) {
     console.debug('repondreRegistrationChallenge nomUsager: %s, attestation: %O', username, challengeWebauthn);
     // Parse options, remplacer base64 par buffer
-    const challenge = multiencoding.decodeBase64(challengeWebauthn.challenge);
+    const challenge = multiencoding.decodeBase64Url(challengeWebauthn.challenge);
     const attestation = challengeWebauthn.attestation;
-    const userId = multiencoding.decodeBase64(challengeWebauthn.user.id);
+    const userId = multiencoding.decodeBase64Url(challengeWebauthn.user.id);
   
     const publicKey = {
         ...challengeWebauthn,

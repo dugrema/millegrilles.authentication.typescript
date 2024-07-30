@@ -3,6 +3,7 @@ import axios from 'axios';
 import LanguageIcon from './resources/language-svgrepo-com.svg';
 import VersionInfo from './VersionInfo';
 import useConnectionStore from './connectionStore';
+import useAuthenticationStore from './authenticationStore';
 import useWorkers, { AppWorkers } from './workers/workers';
 import { getUser, getUsersList, updateUser, UserCertificateRequest } from './idb/userStoreIdb';
 import { multiencoding, certificates, messageStruct } from 'millegrilles.cryptography';
@@ -21,21 +22,26 @@ const CLASSNAME_BUTTON_PRIMARY = `
 
 function Login() {
 
-    console.debug("Login Page render");
-
     let workers = useWorkers();
-//    let usernameStore = useConnectionStore(state=>state.username);
     let setUsernameStore = useConnectionStore(state=>state.setUsername);
-    // let connectionReady = useConnectionStore((state) => state.connectionReady);
-    // let userSessionActive = useConnectionStore((state) => state.userSessionActive);
     let setMustManuallyAuthenticate = useConnectionStore((state) => state.setMustManuallyAuthenticate);
     let setConnectionAuthenticated = useConnectionStore((state) => state.setConnectionAuthenticated);
 
-    let [username, setUsername] = useState('');
+    // Store that persists values in local storage
+    let usernamePersist = useAuthenticationStore( state => state.username );
+    let setUsernamePersist = useAuthenticationStore( state => state.setUsername );
+    let sessionDurationPersist = useAuthenticationStore( state => state.sessionDuration );
+    let setSessionDurationPersist = useAuthenticationStore( state => state.setSessionDuration );
+
+    // Initialize values from persistent storage
+    let [username, setUsername] = useState(usernamePersist);
+    let [sessionDuration, setSessionDuration] = useState(sessionDurationPersist);
+
     let [error, setError] = useState('');
     let [mainOpacity, setMainOpacity] = useState('opacity-100');
     let [register, setRegister] = useState(false);
     let [webauthnChallenge, setWebauthnChallenge] = useState<PrepareAuthenticationResult>();
+    let [webauthnReady, setWebauthnReady] = useState(false);
 
     let handleLogin = useCallback((e: React.FormEvent<HTMLInputElement|HTMLFormElement> | null)=>{
         e?.preventDefault();
@@ -51,7 +57,24 @@ function Login() {
             return;
         }
 
-        performLogin(workers, username)
+        if(webauthnChallenge) {
+            // Immediately sign the challenge - allows for 1-pass on iOS
+            authenticate(workers, username, webauthnChallenge.demandeCertificat, webauthnChallenge.publicKey, sessionDuration)
+                .then(()=>{
+                    setUsernameStore(username);
+                    setConnectionAuthenticated(true);
+                    setMustManuallyAuthenticate(false);
+
+                    // Persist information for next time the screen is loaded
+                    setUsernamePersist(username);
+                    setSessionDurationPersist(sessionDuration);
+                })
+                .catch(err=>console.error("Error logging in ", err));
+            return;
+        }
+
+        // Normal login process when the webauthn challenge is not provided up front.
+        performLogin(workers, username, sessionDuration)
             .then(async result=>{
                 // Set the username for the overall application
                 setUsernameStore(username);
@@ -60,6 +83,10 @@ function Login() {
                 } else if(result.authenticated) {
                     setMustManuallyAuthenticate(false);
                     setConnectionAuthenticated(true);
+
+                    // Persist information for next time the screen is loaded
+                    setUsernamePersist(username);
+                    setSessionDurationPersist(sessionDuration);
                 } else if(result.webauthnChallenge) {
                     let preparedChallenge = await prepareAuthentication(username, result.webauthnChallenge, null, false);
                     setWebauthnChallenge(preparedChallenge);
@@ -68,37 +95,26 @@ function Login() {
             .catch(err=>{
                 console.debug("userLoginVerification error", err)
             });
-    
-        // console.debug("Login user %s", username);
-        // setMainOpacity('opacity-0');
-        // setTimeout(()=>{
-        //     setUsernameStore(username);
-        // }, 1000);
         
-    }, [workers, username, setMainOpacity, setUsernameStore, setRegister]);
+    }, [workers, username, setMainOpacity, setUsernameStore, setRegister, webauthnChallenge, sessionDuration, setUsernamePersist, setSessionDurationPersist]);
 
-    // useEffect(()=>{
-    //     console.debug("Login workers %O, connectionReady: %O", workers, connectionReady);
-    //     if(!workers || !connectionReady) return;
-
-    //     authenticateConnectionWorker(workers, usernameStore, userSessionActive)
-    //         .then(result=>{
-    //             console.debug("Result of authenticateConnectionWorker : ", result);
-    //             if(result.mustManuallyAuthenticate) {
-    //                 setMustManuallyAuthenticate(true);
-    //                 return;
-    //             }
-
-    //             if(result.authenticated) {
-    //                 setMustManuallyAuthenticate(false);
-    //                 setConnectionAuthenticated(true);
-    //             }
-    //         })
-    //         .catch(err=>{
-    //             console.error("Authentication error ", err);
-    //             setMustManuallyAuthenticate(true);
-    //         });
-    // }, [workers, usernameStore, userSessionActive, connectionReady, setMustManuallyAuthenticate, setConnectionAuthenticated]);
+    // Pre-emptive loading of user authentication information
+    useEffect(()=>{
+        let timeout = setTimeout(async () => {
+            let userInfo = await userLoginVerification(username);
+            console.debug("Loaded user info ", userInfo);
+            let webauthnChallenge = userInfo?.authentication_challenge;
+            if(webauthnChallenge) {
+                let preparedChallenge = await prepareAuthentication(username, webauthnChallenge, null, false);
+                setWebauthnReady(true);
+                setWebauthnChallenge(preparedChallenge);
+            } else {
+                setWebauthnChallenge(undefined);
+                setWebauthnReady(false);
+            }
+        }, 400);
+        return () => clearTimeout(timeout);
+    }, [username, setWebauthnReady, setWebauthnChallenge])
 
     let usernameOnChangeHandler = useCallback((e: React.FormEvent<HTMLInputElement>) => {
         setError('');
@@ -113,11 +129,29 @@ function Login() {
         setWebauthnChallenge(undefined);
     }, [setWebauthnChallenge]);
 
+    let setSessionDurationHandler = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+        let value = Number.parseInt(e.currentTarget.value);
+        console.debug("Set session duration : %O : %O", e.currentTarget.value, value);
+        if(!isNaN(value)) setSessionDuration(value);
+    }, [setSessionDuration]);
+
     // Determine which part of the login process to render
     let pageContent;
-    if(register) pageContent = <UserRegistrationScreen username={username} back={closeRegister} />;
-    else if(webauthnChallenge) pageContent = <WebauthnChallengeScreen username={username} back={closeWebauthnScreen} webauthnChallenge={webauthnChallenge} />;
-    else pageContent = <UserInputScreen username={username} usernameOnChange={usernameOnChangeHandler} handleLogin={handleLogin} />;
+    if(register) {
+        pageContent = (
+            <UserRegistrationScreen username={username} back={closeRegister} sessionDuration={sessionDuration} />
+        );
+    } else if(webauthnChallenge && !webauthnReady) {
+        pageContent = (
+            <WebauthnChallengeScreen username={username} back={closeWebauthnScreen} webauthnChallenge={webauthnChallenge} 
+                sessionDuration={sessionDuration}/>
+        );
+    } else {
+        pageContent = (
+            <UserInputScreen username={username} usernameOnChange={usernameOnChangeHandler} handleLogin={handleLogin} 
+                duration={sessionDuration} setDuration={setSessionDurationHandler} />
+        );
+    }
 
     return (
         <div className={'transition-opacity duration-1000 grid grid-cols-1 justify-items-center ' + mainOpacity}>
@@ -137,6 +171,8 @@ type UserInputScreenProps = {
     username: string,
     usernameOnChange(e: React.FormEvent<HTMLInputElement|HTMLFormElement>): void,
     handleLogin(e: React.FormEvent<HTMLInputElement|HTMLFormElement>): void,
+    duration: number,
+    setDuration(e: React.ChangeEvent<HTMLSelectElement>): void,
 };
 
 function UserInputScreen(props: UserInputScreenProps) {
@@ -145,7 +181,7 @@ function UserInputScreen(props: UserInputScreenProps) {
             <div className='MessageBox grid grid-cols-3 min-w-80 max-w-lg border-4 border-slate-500 shadow-2xl rounded-xl p-8 bg-slate-900 text-slate-300 justify-items-end'>
                 <UserSelection username={props.username} usernameOnChangeHandler={props.usernameOnChange} />
                 <LanguageSelectbox />
-                <DurationSelectbox />
+                <DurationSelectbox duration={props.duration} setDuration={props.setDuration} />
                 
                 <div className='grid grid-cols-1 min-w-full col-span-3 justify-items-center mt-10'>
                     <Buttons handleLogin={props.handleLogin} />
@@ -157,6 +193,7 @@ function UserInputScreen(props: UserInputScreenProps) {
 
 type UserRegistrationScreenProps = {
     username: string,
+    sessionDuration: number,
     back(e: any): void,
 }
 
@@ -166,17 +203,26 @@ function UserRegistrationScreen(props: UserRegistrationScreenProps) {
     let setMustManuallyAuthenticate = useConnectionStore((state) => state.setMustManuallyAuthenticate);
     let setConnectionAuthenticated = useConnectionStore((state) => state.setConnectionAuthenticated);
 
+    // Store that persists values in local storage
+    let setUsernamePersist = useAuthenticationStore( state => state.setUsername );
+    let setSessionDurationPersist = useAuthenticationStore( state => state.setSessionDuration );
+    
     let username = props.username;
+    let sessionDuration = props.sessionDuration;
 
     let handleRegistration = useCallback((e: React.FormEvent<HTMLInputElement|HTMLFormElement>)=>{
         e.preventDefault();
         e.stopPropagation();
         if(!workers) throw Error("Workers not initialized");
-        registerUser(workers, username)
+        registerUser(workers, username, sessionDuration)
             .then(async response =>{
                 if(response.authenticated) {
                     setMustManuallyAuthenticate(false);
                     setConnectionAuthenticated(true);
+
+                    // Persist information for next time the screen is loaded
+                    setUsernamePersist(username);
+                    setSessionDurationPersist(sessionDuration);
                 } else {
                     throw new Error("Registration / authentication failed");
                 }
@@ -184,7 +230,7 @@ function UserRegistrationScreen(props: UserRegistrationScreenProps) {
             .catch(err=>{
                 console.error("Error registering user", err);
             })
-    }, [workers, username, setConnectionAuthenticated, setMustManuallyAuthenticate]);
+    }, [workers, username, sessionDuration, setConnectionAuthenticated, setMustManuallyAuthenticate, setUsernamePersist, setSessionDurationPersist]);
 
     return (
         <form onSubmit={handleRegistration}>
@@ -206,19 +252,25 @@ type WebauthnChallengeScreenProps = {
     username: string,
     back(e: any): void,
     webauthnChallenge: PrepareAuthenticationResult,
+    sessionDuration: number,
 }
 
 function WebauthnChallengeScreen(props: WebauthnChallengeScreenProps) {
 
     let username = props.username;
     let webauthnChallenge = props.webauthnChallenge;
-    let sessionDuration = 3600;  // Todo propagate session duration
+    let sessionDuration = props.sessionDuration;  // Todo propagate session duration
 
     let workers = useWorkers();
 
     let setMustManuallyAuthenticate = useConnectionStore((state) => state.setMustManuallyAuthenticate);
     let setConnectionAuthenticated = useConnectionStore((state) => state.setConnectionAuthenticated);
 
+    // Store that persists values in local storage
+    let setUsernamePersist = useAuthenticationStore( state => state.setUsername );
+    let setSessionDurationPersist = useAuthenticationStore( state => state.setSessionDuration );
+    
+    
     let loginHandler = useCallback(()=>{
         console.debug("Log in with ", webauthnChallenge);
         if(!workers) throw new Error("Workers not initialized");
@@ -226,9 +278,12 @@ function WebauthnChallengeScreen(props: WebauthnChallengeScreenProps) {
             .then(()=>{
                 setConnectionAuthenticated(true);
                 setMustManuallyAuthenticate(false);
+
+                setUsernamePersist(username);
+                setSessionDurationPersist(sessionDuration);
             })
             .catch(err=>console.error("Error logging in ", err));
-    }, [workers, username, webauthnChallenge, sessionDuration]);
+    }, [workers, username, webauthnChallenge, sessionDuration, setUsernamePersist, setSessionDurationPersist]);
 
     return (
         <div className='MessageBox grid grid-cols-3 min-w-80 max-w-lg border-4 border-slate-500 shadow-2xl rounded-xl p-8 bg-slate-900 text-slate-300 justify-items-end'>
@@ -282,15 +337,21 @@ function UserSelection(props: UserSelectionProps) {
     )
 }
 
-function DurationSelectbox() {
+type DurationSelectBox = {
+    duration: number,
+    setDuration(e: React.ChangeEvent<HTMLSelectElement>): void,
+}
+
+function DurationSelectbox(props: DurationSelectBox) {
     return (
         <>
             <label htmlFor='duration' className='pr-4 mt-2'>Session duration</label>
-            <select id='duration' className='bg-slate-700 text-slate-300 rounded min-w-full col-span-2 mt-2 hover:bg-slate-500 hover:ring-offset-1 hover:ring-1 focus:bg-indigo-700'>
-                <option>1 hour</option>
-                <option>1 day</option>
-                <option>1 week</option>
-                <option>1 month</option>
+            <select id='duration' onChange={props.setDuration} value={props.duration}
+                className='bg-slate-700 text-slate-300 rounded min-w-full col-span-2 mt-2 hover:bg-slate-500 hover:ring-offset-1 hover:ring-1 focus:bg-indigo-700'>
+                <option value='3600'>1 hour</option>
+                <option value='86400'>1 day</option>
+                <option value='604800'>1 week</option>
+                <option value='2678400'>1 month</option>
             </select>
         </>
     )
@@ -412,7 +473,7 @@ async function createCertificateRequest(workers: AppWorkers, username: string, u
     return requestEntry
 }
 
-async function registerUser(workers: AppWorkers, username: string) {
+async function registerUser(workers: AppWorkers, username: string, sessionDuration: number) {
     console.debug("Register ", username)
     // Get userId if available
     let userId: string | undefined = undefined;
@@ -444,7 +505,7 @@ async function registerUser(workers: AppWorkers, username: string) {
     });
 
     // Activate the server session
-    await performLogin(workers, username);
+    await performLogin(workers, username, sessionDuration);
     
     // Authenticate the connection worker
     return await authenticateConnectionWorker(workers, username, true);
@@ -459,7 +520,7 @@ type PerformLoginResult = {
     webauthnChallenge?: AuthenticationChallengeType,
 }
 
-async function performLogin(workers: AppWorkers, username: string): Promise<PerformLoginResult> {
+async function performLogin(workers: AppWorkers, username: string, sessionDuration: number): Promise<PerformLoginResult> {
     let userDbInfo = await getUser(username)
     console.debug("User DB info ", userDbInfo);
 
@@ -511,7 +572,7 @@ async function performLogin(workers: AppWorkers, username: string): Promise<Perf
         if(userDbInfo?.certificate && loginInfo.challenge_certificat) {
             // We got a challenge to authenticate with the certificate.
             await workers.connection.prepareMessageFactory(userDbInfo.certificate.privateKey, userDbInfo.certificate.certificate);
-            let authenticationResponse = await certificateAuthentication(workers, loginInfo.challenge_certificat, 3_600);  // Todo - propagate session duration.
+            let authenticationResponse = await certificateAuthentication(workers, loginInfo.challenge_certificat, sessionDuration);
             return {authenticated: authenticationResponse.auth, userId: authenticationResponse.userId};
         } else {
             // Determine if we can authenticate with a security device (webauth).
@@ -637,7 +698,7 @@ async function prepareAuthentication(username: string, challengeWebauthn: Authen
     return resultat
 }
 
-async function authenticate(workers: AppWorkers, username: string, demandeCertificat: any, publicKey: any, sessionDuration?: number): Promise<AuthenticationResponseType> {
+async function authenticate(workers: AppWorkers, username: string, demandeCertificat: any, publicKey: any, sessionDuration: number): Promise<AuthenticationResponseType> {
     // N.B. La methode doit etre appelee par la meme thread que l'event pour supporter
     //      TouchID sur iOS.
     console.debug("Signer challenge : %O (opts: %O)", publicKey)
@@ -653,7 +714,7 @@ async function authenticate(workers: AppWorkers, username: string, demandeCertif
     if(contenu.auth && contenu.userId) {
 
         // Activate the server session
-        await performLogin(workers, username);
+        await performLogin(workers, username, sessionDuration);
         
         // Authenticate the connection worker
         return await authenticateConnectionWorker(workers, username, true);
