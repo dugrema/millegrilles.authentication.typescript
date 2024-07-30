@@ -5,7 +5,7 @@ import VersionInfo from './VersionInfo';
 import useConnectionStore from './connectionStore';
 import useWorkers, { AppWorkers } from './workers/workers';
 import { getUser, getUsersList, updateUser } from './idb/userStoreIdb';
-import { multiencoding, certificates } from 'millegrilles.cryptography';
+import { multiencoding, certificates, messageStruct } from 'millegrilles.cryptography';
 
 const CLASSNAME_BUTTON_PRIMARY = `
     transition ease-in-out 
@@ -56,6 +56,9 @@ function Login() {
                 setUsernameStore(username);
                 if(result.register) {
                     setRegister(true);
+                } else if(result.authenticated) {
+                    setMustManuallyAuthenticate(false);
+                    setConnectionAuthenticated(true);
                 }
             })
             .catch(err=>{
@@ -410,6 +413,7 @@ type PerformLoginResult = {
     mustReconnectWorker?: boolean,
     mustManuallyAuthenticate?: boolean,
     authenticated?: boolean,
+    userId?: string,
 }
 
 async function performLogin(workers: AppWorkers, username: string): Promise<PerformLoginResult> {
@@ -457,8 +461,8 @@ async function performLogin(workers: AppWorkers, username: string): Promise<Perf
         if(userDbInfo?.certificate && loginInfo.challenge_certificat) {
             // We got a challenge to authenticate with the certificate.
             await workers.connection.prepareMessageFactory(userDbInfo.certificate.privateKey, userDbInfo.certificate.certificate);
-            certificateAuthentication(workers, loginInfo.challenge_certificat, 3_600);  // Todo - propagate session duration.
-            throw new Error("todo - certificate challenge");
+            let authenticationResponse = await certificateAuthentication(workers, loginInfo.challenge_certificat, 3_600);  // Todo - propagate session duration.
+            return {authenticated: authenticationResponse.auth, userId: authenticationResponse.userId};
         } else {
             // Determine if we can authenticate with a security device (webauth).
             throw new Error("todo - webauth");
@@ -469,14 +473,22 @@ async function performLogin(workers: AppWorkers, username: string): Promise<Perf
     }
 }
 
-async function certificateAuthentication(workers: AppWorkers, challenge: string, sessionDuration?: number) {
+type AuthenticationResponseType = {
+    auth?: boolean,
+    userId?: string,
+}
+
+async function certificateAuthentication(workers: AppWorkers, challenge: string, sessionDuration?: number): Promise<AuthenticationResponseType> {
     let data = {certificate_challenge: challenge, activation: true, dureeSession: sessionDuration};
     // Sign as a command
     // MESSAGE_KINDS.KIND_COMMANDE, data, {domaine: 'auth', action: 'authentifier_usager', ajouterCertificat: true}
     let command = await workers.connection.signAuthentication(data);
     console.debug("Auth command with challenge : ", command);
-    const authenticationResult = await axios.post('/auth/authentifier_usager', command);
+    let authenticationResult = await axios.post('/auth/authentifier_usager', command);
     console.debug("Authentication result ", authenticationResult);
+    let responseMessage = authenticationResult.data as messageStruct.MilleGrillesMessage;
+    let authenticationResponse = JSON.parse(responseMessage.contenu) as AuthenticationResponseType;
+    return authenticationResponse
 }
 
 async function authenticateConnectionWorker(workers: AppWorkers, username: string, userSessionActive: boolean): Promise<PerformLoginResult> {

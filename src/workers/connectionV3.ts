@@ -151,15 +151,6 @@ export default class ConnectionSocketio {
             if(info.idmg) params.idmg = info.idmg;
             this.callback(params);
         }
-    
-        // // console.debug("connexionClient.onConnect %O", info)
-        // if(connexion.callbackSetUsager && info && info.nomUsager) {
-        //     // console.debug("connexionClient.onConnect setUsager %s", info.nomUsager)
-        //     await connexion.callbackSetUsager(info.nomUsager)
-        // } else {
-        //     // Indiquer qu'il n'y a pas de session usager
-        //     await connexion.callbackSetUsager(false)
-        // }
     }
 
     /**
@@ -304,7 +295,7 @@ export default class ConnectionSocketio {
         return true
     }
 
-    async verifyResponse(response: messageStruct.MilleGrillesMessage, opts?: any) {
+    async verifyResponse(response: messageStruct.MilleGrillesMessage, opts?: any): Promise<MessageResponse | messageStruct.MilleGrillesMessage> {
         opts = opts || {}
     
         if(opts.noverif) {
@@ -359,15 +350,56 @@ export default class ConnectionSocketio {
     async authenticate(apiMapping?: Object) {
         // Faire une requete pour upgrader avec le certificat
         let challengeResponse = await this.emitWithAck('genererChallengeCertificat', null, {noverif: true});
-        console.debug("reactjs.connexionClient.Authentifier Challenge : ", challengeResponse)
-    
         let data = {...challengeResponse.challengeCertificat};
 
-        console.debug("reactjs.connexionClient.Authentifier Upgrade : ", data)
         let authenticationResponse = await this.sendCommand(data, 'authentication', 'authenticate', {attachments: {apiMapping: apiMapping}});
 
-        console.debug("reactjs.connexionClient.Authentifier Reponse upgrade ", authenticationResponse)
         return authenticationResponse.ok === true;
+    }
+}
+
+export class ConnectionWorker {
+    connection?: ConnectionSocketio;
+
+    async connect() {
+        return this.connection?.connect();
+    }
+
+    async reconnect() {
+        return this.connection?.reconnect();
+    }
+
+    async initialize(serverUrl: string, ca: string, callback: (params: ConnectionCallbackParameters) => void, opts?: ConnectionSocketioProps): Promise<boolean> {
+        this.connection = new ConnectionSocketio(serverUrl, ca, callback, opts);
+        return true;
+    }
+    
+    async ping(): Promise<boolean> {
+        console.debug("Ping");
+        if(!this.connection) return false;
+        return true;
+    }
+
+    async prepareMessageFactory(privateKey: Uint8Array, certificate: Array<string>) {
+        if(!this.connection) throw new Error("Connection is not initialized");
+        let signingKey = await ed25519.messageSigningKeyFromBytes(privateKey, certificate);
+        return this.connection.prepareMessageFactory(signingKey);
+    }
+
+    async getUserInformation(username: string) {
+        if(!this.connection) throw new Error("Connection is not initialized");
+        return await this.connection.emitWithAck('getInfoUsager', {nomUsager: username}, {noverif: true});
+    }
+
+    async signAuthentication(data: {certificate_challenge: string, activation?: boolean, dureeSession?: number}): Promise<string> {
+        // Sign an auth command.
+        let command = await this.connection?.createRoutedMessage(
+            messageStruct.MessageKind.Command, 
+            data, 
+            {domaine: 'auth', action: 'authentifier_usager'}
+        );
+        // Serialize to string
+        return JSON.stringify(command);
     }
 }
 
