@@ -22,6 +22,7 @@ export type EmitWithAckProps = {
 }
 
 export type SendProps = {
+    eventName?: string,
     timeout?: number,
     overrideConnected?: boolean,
     noverif?: boolean,
@@ -328,22 +329,22 @@ export default class ConnectionSocketio {
     }
 
     async sendRequest(message: Object, domain: string, action: string, props?: SendProps): Promise<MessageResponse> {
-        let routing: {domain: string, action: string, partition?: string} = {domain, action};
+        let routing: {domaine: string, action: string, partition?: string} = {domaine: domain, action};
         if(props?.partition) routing.partition = props.partition;
         let request = await this.messageSigner?.createRoutedMessage(messageStruct.MessageKind.Request, message, routing, new Date());
         if(!request) throw new Error("Error generating request: null");
         if(props?.attachments) request.attachements = props.attachments;
-        let eventName = [domain, action].join('_');
+        let eventName = props?.eventName || 'route_message';
         return await this.emitWithAck(eventName, request, props);
     }
 
     async sendCommand(message: Object, domain: string, action: string, props?: SendProps): Promise<MessageResponse> {
-        let routing: {domain: string, action: string, partition?: string} = {domain, action};
+        let routing: {domaine: string, action: string, partition?: string} = {domaine: domain, action};
         if(props?.partition) routing.partition = props.partition;
-        let command = await this.messageSigner?.createRoutedMessage(messageStruct.MessageKind.Request, message, routing, new Date());
+        let command = await this.messageSigner?.createRoutedMessage(messageStruct.MessageKind.Command, message, routing, new Date());
         if(!command) throw new Error("Error generating command: null");
         if(props?.attachments) command.attachements = props.attachments;
-        let eventName = [domain, action].join('_');
+        let eventName = props?.eventName || 'route_message';
         return await this.emitWithAck(eventName, command, props);
     }
 
@@ -352,8 +353,10 @@ export default class ConnectionSocketio {
         let challengeResponse = await this.emitWithAck('genererChallengeCertificat', null, {noverif: true});
         let data = {...challengeResponse.challengeCertificat};
 
-        let authenticationResponse = await this.sendCommand(data, 'authentication', 'authenticate', {attachments: {apiMapping: apiMapping}});
-
+        let authenticationResponse = await this.sendCommand(
+            data, 'authentication', 'authenticate', 
+            {attachments: {apiMapping: apiMapping}, eventName: 'authentication_authenticate'}
+        );
         return authenticationResponse.ok === true;
     }
 }

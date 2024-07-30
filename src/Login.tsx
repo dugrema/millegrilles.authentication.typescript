@@ -92,6 +92,7 @@ function Login() {
             })
             .catch(err=>{
                 console.error("Authentication error ", err);
+                setMustManuallyAuthenticate(true);
             });
     }, [workers, usernameStore, userSessionActive, connectionReady, setMustManuallyAuthenticate, setConnectionAuthenticated]);
 

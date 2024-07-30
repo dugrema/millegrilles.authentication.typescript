@@ -1,9 +1,30 @@
 import { expose } from 'comlink';
 import { forgeCsr } from 'millegrilles.cryptography'
-import { ConnectionWorker } from './connectionV3';
+import { ConnectionWorker, MessageResponse } from './connectionV3';
 
 import '@solana/webcrypto-ed25519-polyfill';
 import apiMapping from '../resources/apiMapping.json';
+
+export type AuthenticationChallengeType = any;
+export type DelegationChallengeType = any;
+export type RegistrationChallengeType = {
+    publicKey: {
+        attestation?: string,
+        authenticatorSelection?: {requireResidentKey?: boolean, userVerification?: string},
+        challenge: string,
+        extensions?: any,
+        pubKeyCredParams?: Array<{alg: number, type: string}>,
+        rp?: {id: string, name: string},
+        timeout?: number,
+        user?: {displayName?: string, id: string, name: string},
+    }
+};
+
+export type WebauthChallengeResponse = {
+    authentication_challenge?: AuthenticationChallengeType,
+    delegation_challenge?: DelegationChallengeType,
+    registration_challenge?: RegistrationChallengeType,
+};
 
 export class AuthenticationConnectionWorker extends ConnectionWorker {
 
@@ -25,6 +46,18 @@ export class AuthenticationConnectionWorker extends ConnectionWorker {
      */
     async createCertificateRequest(username: string, userId?: string): Promise<{pem: string, privateKeyPem: string, privateKey: Uint8Array, publicKey: Uint8Array}> {
         return await forgeCsr.createCsr(username, userId);
+    }
+
+    async respondChallengeRegistrationWebauthn(response: Object): Promise<MessageResponse> {
+        if(!this.connection) throw new Error("Connection is not initialized");
+        return this.connection.sendCommand(response, 'CoreMaitreDesComptes', 'ajouterCle');
+    }
+
+    async generateWebauthChallenge(command: Object): Promise<WebauthChallengeResponse> {
+        if(!this.connection) throw new Error("Connection is not initialized");
+        let response = this.connection.sendCommand(
+            command, 'CoreMaitreDesComptes', 'genererChallenge', {eventName: 'authentication_challenge_webauthn'}) as WebauthChallengeResponse;
+        return response;
     }
 
 }

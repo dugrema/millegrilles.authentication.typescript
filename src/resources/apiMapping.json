@@ -1,6 +1,6 @@
 {
     "defaults": {
-      "domain": "MaitreDesComptes",
+      "domain": "CoreMaitreDesComptes",
       "exchange": "2.prive"
     },
     "requests": [
