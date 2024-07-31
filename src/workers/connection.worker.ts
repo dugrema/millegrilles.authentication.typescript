@@ -5,15 +5,16 @@ import { ConnectionWorker, MessageResponse } from './connectionV3';
 import '@solana/webcrypto-ed25519-polyfill';
 import apiMapping from '../resources/apiMapping.json';
 
-export type AuthenticationChallengeType = {
-    publicKey: {
-        allowCredentials?: Array<{id: string, type: string}>,
-        challenge: string,
-        rpId?: string,
-        timeout?: number,
-        userVerification?: string,
-    },
+export type AuthenticationChallengePublicKeyType = {
+    allowCredentials?: Array<{id: string, type: string}>,
+    challenge: string,
+    rpId?: string,
+    timeout?: number,
+    userVerification?: 'string',
+};
 
+export type AuthenticationChallengeType = {
+    publicKey: AuthenticationChallengePublicKeyType,
 };
 export type DelegationChallengeType = string;
 export type RegistrationChallengeType = {
@@ -55,6 +56,7 @@ type CompteUsagerType = MessageResponse & {
 
 type CurrentUserDetailType = {
     compte?: CompteUsagerType,
+    authentication_challenge: AuthenticationChallengeType,
 }
 
 export class AuthenticationConnectionWorker extends ConnectionWorker {
@@ -112,6 +114,11 @@ export class AuthenticationConnectionWorker extends ConnectionWorker {
     async getCurrentUserDetail(username: string, hostname: string): Promise<CurrentUserDetailType> {
         if(!this.connection) throw new Error("Connection is not initialized");
         return await this.connection.sendRequest({nomUsager: username, hostUrl: hostname}, 'CoreMaitreDesComptes', 'chargerUsager') as CurrentUserDetailType;
+    }
+
+    async signUserAccount(command: Object): Promise<{certificat?: Array<string>} & MessageResponse> {
+        if(!this.connection) throw new Error("Connection is not initialized");
+        return await this.connection.sendCommand(command, 'CoreMaitreDesComptes', 'signerCompteUsager');
     }
 }
 

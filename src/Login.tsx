@@ -8,6 +8,7 @@ import useWorkers, { AppWorkers } from './workers/workers';
 import { getUser, getUsersList, updateUser, UserCertificateRequest } from './idb/userStoreIdb';
 import { multiencoding, certificates, messageStruct, digest } from 'millegrilles.cryptography';
 import stringify from 'json-stable-stringify';
+import { AuthenticationChallengePublicKeyType, AuthenticationChallengeType } from './workers/connection.worker';
 
 const CLASSNAME_BUTTON_PRIMARY = `
     transition ease-in-out 
@@ -122,15 +123,18 @@ function Login() {
                             wrapper.populateExtensions();
                             let entry = await prepareRenewalIfDue(workers, wrapper);
                             if(entry) {
+                                console.debug("New CSR generated for renewal");
                                 csr = entry.pem;
                             }
                         } else {
                             // There is no certificate. Generate a CSR
+                            console.debug("Generate CSR for entry without certificate");
                             let entry = await createCertificateRequest(workers, username);
                             csr = entry.pem;
                         }
                     } else if(user?.request) {
                         // Use the CSR for the signature
+                        console.debug("Use existing CSR");
                         csr = user?.request.pem;
                     }
                 }
@@ -438,17 +442,17 @@ type CredentialsType = {
     type: string,
 };
 
-type AuthenticationChallengePublicKeyType = {
-    allowCredentials?: Array<CredentialsType>,
-    challenge: string,
-    rpId?: string,
-    timeout?: number,
-    userVerification?: 'string',
-};
+// type AuthenticationChallengePublicKeyType = {
+//     allowCredentials?: Array<CredentialsType>,
+//     challenge: string,
+//     rpId?: string,
+//     timeout?: number,
+//     userVerification?: 'string',
+// };
 
-type AuthenticationChallengeType = {
-    publicKey?: AuthenticationChallengePublicKeyType,
-};
+// type AuthenticationChallengeType = {
+//     publicKey?: AuthenticationChallengePublicKeyType,
+// };
 
 type UserLoginVerificationResult = {
     authentication_challenge?: AuthenticationChallengeType,
@@ -693,13 +697,13 @@ export async function authenticateConnectionWorker(workers: AppWorkers, username
     return { authenticated: true };
 }
 
-type PrepareAuthenticationResult = {
+export type PrepareAuthenticationResult = {
     publicKey: AuthenticationChallengePublicKeyType, 
     demandeCertificat: any, 
     challengeReference: string,
 };
 
-async function prepareAuthentication(
+export async function prepareAuthentication(
     username: string, challengeWebauthn: AuthenticationChallengeType, csr: string | null, activationTierce: boolean
 ): Promise<PrepareAuthenticationResult> {
     console.debug("Preparer authentification avec : %O, CSR: %s", challengeWebauthn, csr);
@@ -802,9 +806,10 @@ type SignAuthenticationResult = {
     nomUsager: string, 
     demandeCertificat?: any, 
     dureeSession?: number,
+    webauthn?: any,
 };
 
-export async function signAuthenticationRequest(username: string, demandeCertificat: any, publicKey: any, sessionDuration?: number): Promise<SignAuthenticationResult> {
+export async function signAuthenticationRequest(username: string, demandeCertificat: string, publicKey: any, sessionDuration?: number): Promise<SignAuthenticationResult> {
     // const connexion = opts.connexion
     // N.B. La methode doit etre appelee par la meme thread que l'event pour supporter
     //      TouchID sur iOS.

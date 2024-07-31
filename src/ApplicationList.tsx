@@ -1,13 +1,13 @@
 import { useState, useCallback, useEffect, MouseEvent, MouseEventHandler, Dispatch, SyntheticEvent } from 'react';
 import { Popover } from 'flowbite-react';
-import { createCertificateRequest, LanguageSelectbox, prepareRenewalIfDue } from './Login';
+import { createCertificateRequest, LanguageSelectbox, prepareAuthentication, PrepareAuthenticationResult, prepareRenewalIfDue, signAuthenticationRequest } from './Login';
 import KeyIcon from './resources/key-svgrepo-com.svg';
 import StarIcon from './resources/collect-svgrepo-com.svg';
 import SwitchIcon from './resources/switch-svgrepo-com.svg';
 import VersionInfo from './VersionInfo';
 import useUserStore from './connectionStore';
 import useWorkers from './workers/workers';
-import { getUser } from './idb/userStoreIdb';
+import { getUser, updateUser } from './idb/userStoreIdb';
 
 type ApplicationListProps = {
     logout: MouseEventHandler<MouseEvent>,
@@ -60,19 +60,7 @@ function ApplicationList(props: ApplicationListProps) {
                     </blockquote>
                 </div>
 
-                {certificateRenewable?
-                    <div className='border-t border-l border-r border-slate-500 text-start p-2 w-full'>
-                        <button className='font-semibold hover:underline'>
-                            <img src={StarIcon} className="inline w-10 mr-1" alt='key icon' />
-                            Renew this browser's certificate
-                        </button>
-                        <p>Action required</p>
-                        <blockquote className='text-left h-18 line-clamp-6 sm:line-clamp-3 text-sm'>
-                            This renews the browser's connection. This is regular security check on your
-                            account and requires your security device.
-                        </blockquote>
-                    </div>
-                :<span></span>}
+                {certificateRenewable?<RenewCertificate />:<span></span>}
 
                 <InstalledApplications />
 
@@ -162,6 +150,7 @@ function VerifyCertificateRenewal() {
         let hostname = window.location.hostname;
         workers.connection.getCurrentUserDetail(username, hostname)
             .then((result)=>{
+                console.debug("User detail ", result);
                 let delegations_version = result.compte?.delegations_version;
                 let delegations_date = result.compte?.delegations_date;
                 if(delegations_version && delegations_date) {
@@ -199,9 +188,13 @@ function VerifyCertificateRenewal() {
                 }
                 
                 if(!certificateRemoteVersions) return
-                console.debug("Compare idb %O to remote %O", userIdb, certificateRemoteVersions)
-                let local_version = userIdb?.delegations_version || 0;
-                if(local_version < certificateRemoteVersions.version) {
+
+                let notBeforeDate = certificate?.certificate.notBefore.getTime();
+                if(!notBeforeDate) throw new Error('The certificate has no NotBefore date. This is invalid.');
+                notBeforeDate = notBeforeDate / 1000;  // Convert to seconds
+
+                console.debug("Compare idb %O (notBefore epoch %s) to remote %O", userIdb, notBeforeDate, certificateRemoteVersions);
+                if(certificateRemoteVersions.date > notBeforeDate) {
                     console.info("Updated certificate roles on the server");
                     let certificate = await workers.connection.getMessageFactoryCertificate();
                     let userId = certificate?.extensions?.userId;
@@ -217,4 +210,110 @@ function VerifyCertificateRenewal() {
     }, [workers, certificateRemoteVersions, username])
 
     return <span></span>;
+}
+
+function RenewCertificate() {
+
+    let workers = useWorkers();
+    let username = useUserStore(state=>state.username);
+    let setCertificateRemoteVersions = useUserStore(state=>state.setCertificateRemoteVersions);
+    let setCertificateRenewable = useUserStore(state=>state.setCertificateRenewable);
+
+    let [challenge, setChallenge] = useState<PrepareAuthenticationResult>();
+
+    let signHandler = useCallback(()=>{
+        if(!challenge) throw new Error("Challenge not ready");
+        signAuthenticationRequest(username, challenge.demandeCertificat, challenge.publicKey)
+            .then(async signedRequest=>{
+                console.debug("Signed request ", signedRequest);
+                if(!challenge) throw new Error("challenge missing");
+
+                let command = {
+                    demandeCertificat: signedRequest.demandeCertificat,
+                    challenge: challenge.challengeReference,
+                    hostname: window.location.hostname,
+                    clientAssertionResponse: signedRequest.webauthn,
+                };
+                let response = await workers?.connection.signUserAccount(command);
+                console.debug("Sign account response ", response);
+                if(response?.ok && response?.certificat) {
+                    // Success. Save the new certificate and start using it.
+                    // Get the newly generated certificate chain. The last one is the CA, remove it from the chain.
+                    let certificate = response?.certificat;
+                    let ca = certificate.pop();
+
+                    let userIdb = await getUser(username);
+                    let certificateRequest = userIdb?.request;
+                    if(!certificateRequest) {
+                        throw new Error("Error during certificate renewal, no active certificate available");
+                    }
+
+                    let certificateEntry = {
+                        certificate,
+                        publicKey: certificateRequest.publicKey,
+                        privateKey: certificateRequest.privateKey,
+                        publicKeyString: certificateRequest.publicKeyString,
+                    };
+                    await updateUser({
+                        username, certificate: certificateEntry,
+                        request: undefined, // Remove previous request
+                        // legacy
+                        ca, certificat: certificate, clePriveePem: certificateRequest.privateKeyPem,
+                    });
+
+                    // Update the message factory to start using the new certificate immediately
+                    await workers?.connection.prepareMessageFactory(certificateRequest.privateKey, certificate);
+
+                    // Cleanup screen
+                    setCertificateRemoteVersions(undefined);
+                    setCertificateRenewable(false);
+                }
+            })
+            .catch(err=>console.error("Error renewing certificate", err));
+    }, [username, challenge, setCertificateRemoteVersions, setCertificateRenewable]);
+
+    // Pre-emptive loading of user authentication information
+    useEffect(()=>{
+        let hostname = window.location.hostname;
+        workers?.connection.getCurrentUserDetail(username, hostname)
+            .then(async userInfo => {
+                console.debug("Loaded user info ", userInfo);
+                let webauthnChallenge = userInfo?.authentication_challenge;
+                if(webauthnChallenge) {
+                    // Check if the user exists locally and verify if certificate should be renewed.
+                    let csr: string | null = null;
+                    let user = await getUser(username);
+                    if(workers) {
+                        if(!user?.request) {
+                            let entry = await createCertificateRequest(workers, username);
+                            csr = entry.pem;
+                        } else if(user?.request) {
+                            // Use the CSR for the signature
+                            console.debug("Use existing CSR");
+                            csr = user?.request.pem;
+                        }
+                    }
+        
+                    let preparedChallenge = await prepareAuthentication(username, webauthnChallenge, csr, false);
+                    console.debug("Challenge ready : ", preparedChallenge);
+                    setChallenge(preparedChallenge);
+                }
+            })
+            .catch(err=>console.error("Error preparing webauthn signature"));
+        
+    }, [workers, username, setChallenge])
+
+    return (
+        <div className='border-t border-l border-r border-slate-500 text-start p-2 w-full'>
+            <button onClick={signHandler} className='font-semibold hover:underline' disabled={!challenge}>
+                <img src={StarIcon} className="inline w-10 mr-1" alt='key icon' />
+                Renew this browser's certificate
+            </button>
+            <p>Action required</p>
+            <blockquote className='text-left h-18 line-clamp-6 sm:line-clamp-3 text-sm'>
+                This renews the browser's connection. This is regular security check on your
+                account and requires your security device.
+            </blockquote>
+        </div>
+    )        
 }
