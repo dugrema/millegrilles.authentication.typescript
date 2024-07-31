@@ -98,6 +98,7 @@ function InitialAuthenticationCheck() {
 
         promiseInitialCheck = authenticateConnectionWorker(workers, usernameStore, userSessionActive)
             .then(result=>{
+                console.debug("Worker authentication result ", result);
                 if(result.mustManuallyAuthenticate) {
                     setMustManuallyAuthenticate(true);
                     return;

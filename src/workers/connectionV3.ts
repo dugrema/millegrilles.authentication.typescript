@@ -395,10 +395,10 @@ export class ConnectionWorker {
         return this.connection.prepareMessageFactory(signingKey);
     }
 
-    async getUserInformation(username: string) {
-        if(!this.connection) throw new Error("Connection is not initialized");
-        return await this.connection.emitWithAck('getInfoUsager', {nomUsager: username}, {noverif: true});
-    }
+    // async getUserInformation(username: string, hostname: string) {
+    //     if(!this.connection) throw new Error("Connection is not initialized");
+    //     return await this.connection.emitWithAck('getInfoUsager', {nomUsager: username, hostname});
+    // }
 
     async signAuthentication(data: {certificate_challenge: string, activation?: boolean, dureeSession?: number}): Promise<string> {
         // Sign an auth command.

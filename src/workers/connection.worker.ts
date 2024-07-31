@@ -44,6 +44,19 @@ type AddAdministratorRoleResponse = MessageResponse & {
     delegations_version?: number,
 };
 
+type CompteUsagerType = MessageResponse & {
+    nomUsager: string,
+    userId: string,
+    compte_prive?: boolean,
+    delegation_globale?: string,
+    delegations_date?: number,
+    delegations_version?: number,
+};
+
+type CurrentUserDetailType = {
+    compte?: CompteUsagerType,
+}
+
 export class AuthenticationConnectionWorker extends ConnectionWorker {
 
     async authenticate() {
@@ -94,6 +107,11 @@ export class AuthenticationConnectionWorker extends ConnectionWorker {
     async addAdministratorRole(command: Object): Promise<AddAdministratorRoleResponse> {
         if(!this.connection) throw new Error("Connection is not initialized");
         return this.connection.sendCommand(command, 'CoreMaitreDesComptes', 'ajouterDelegationSignee');
+    }
+
+    async getCurrentUserDetail(username: string, hostname: string): Promise<CurrentUserDetailType> {
+        if(!this.connection) throw new Error("Connection is not initialized");
+        return await this.connection.sendRequest({nomUsager: username, hostUrl: hostname}, 'CoreMaitreDesComptes', 'chargerUsager') as CurrentUserDetailType;
     }
 }
 

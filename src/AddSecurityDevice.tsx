@@ -36,7 +36,7 @@ function AddSecurityDevice(props: AddSecurityDeviceProps) {
 
         getUser(username)
             .then( async userIdb => {
-                let publicKey = userIdb.certificate?.publicKeyString;
+                let publicKey = userIdb?.certificate?.publicKeyString;
                 if(!publicKey) throw new Error("Error loading public key for user");
                 if(!workers) throw new Error("Workers not ready");
                 let addResult = await addMethod(workers, username, publicKey, challenge, deactivateOtherKeys);

@@ -110,7 +110,7 @@ export async function getKey(keyId: string): Promise<KeyType> {
     return await store.get(keyId);
 }
 
-export async function getUser(username: string): Promise<UserStoreType> {
+export async function getUser(username: string): Promise<UserStoreType | null> {
     let db = await openDB();
     let store = db.transaction(STORE_USERS, 'readonly').objectStore(STORE_USERS);
     return await store.get(username);

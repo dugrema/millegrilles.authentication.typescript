@@ -6,7 +6,8 @@ import useConnectionStore from './connectionStore';
 import useAuthenticationStore from './authenticationStore';
 import useWorkers, { AppWorkers } from './workers/workers';
 import { getUser, getUsersList, updateUser, UserCertificateRequest } from './idb/userStoreIdb';
-import { multiencoding, certificates, messageStruct } from 'millegrilles.cryptography';
+import { multiencoding, certificates, messageStruct, digest } from 'millegrilles.cryptography';
+import stringify from 'json-stable-stringify';
 
 const CLASSNAME_BUTTON_PRIMARY = `
     transition ease-in-out 
@@ -88,7 +89,13 @@ function Login() {
                     setUsernamePersist(username);
                     setSessionDurationPersist(sessionDuration);
                 } else if(result.webauthnChallenge) {
-                    let preparedChallenge = await prepareAuthentication(username, result.webauthnChallenge, null, false);
+                    let user = await getUser(username);
+                    let csr: string | null = null;
+                    if(user?.request) {
+                        // Use the CSR for the signature
+                        csr = user?.request.pem;
+                    }
+                    let preparedChallenge = await prepareAuthentication(username, result.webauthnChallenge, csr, false);
                     setWebauthnChallenge(preparedChallenge);
                 }
             })
@@ -105,7 +112,30 @@ function Login() {
             console.debug("Loaded user info ", userInfo);
             let webauthnChallenge = userInfo?.authentication_challenge;
             if(webauthnChallenge) {
-                let preparedChallenge = await prepareAuthentication(username, webauthnChallenge, null, false);
+                // Check if the user exists locally and verify if certificate should be renewed.
+                let csr: string | null = null;
+                let user = await getUser(username);
+                if(workers) {
+                    if(!user?.request) {
+                        if(user?.certificate) {
+                            let wrapper = certificates.wrapperFromPems(user.certificate.certificate);
+                            wrapper.populateExtensions();
+                            let entry = await prepareRenewalIfDue(workers, wrapper);
+                            if(entry) {
+                                csr = entry.pem;
+                            }
+                        } else {
+                            // There is no certificate. Generate a CSR
+                            let entry = await createCertificateRequest(workers, username);
+                            csr = entry.pem;
+                        }
+                    } else if(user?.request) {
+                        // Use the CSR for the signature
+                        csr = user?.request.pem;
+                    }
+                }
+
+                let preparedChallenge = await prepareAuthentication(username, webauthnChallenge, csr, false);
                 setWebauthnReady(true);
                 setWebauthnChallenge(preparedChallenge);
             } else {
@@ -114,7 +144,7 @@ function Login() {
             }
         }, 400);
         return () => clearTimeout(timeout);
-    }, [username, setWebauthnReady, setWebauthnChallenge])
+    }, [workers, username, setWebauthnReady, setWebauthnChallenge])
 
     let usernameOnChangeHandler = useCallback((e: React.FormEvent<HTMLInputElement>) => {
         setError('');
@@ -426,16 +456,18 @@ type UserLoginVerificationResult = {
     methodesDisponibles?: {activation?: boolean, certificat?: boolean}
 };
 
-async function userLoginVerification(username: string, fingerprintPkCourant?: string, fingerprintPkNouveau?: string): Promise<UserLoginVerificationResult | null> {
+async function userLoginVerification(username: string): Promise<UserLoginVerificationResult | null> {
     // Check if the username exists or is new
     // let userInformation = await workers.connection.getUserInformation(username);
     //console.debug("User information : ", userInformation);
+    let userIdb = await getUser(username);
+    let currentPublicKey = userIdb?.certificate?.publicKeyString;
     const hostname = window.location.hostname
     let data = {
         nomUsager: username, 
         hostname, 
-        fingerprintPkCourant,
-        fingerprintPkNouveau, 
+        fingerprintPkCourant: currentPublicKey,
+        // fingerprintPkNouveau, 
     };
     let response = await axios({method: 'POST', url: '/auth/get_usager', data, timeout: 20_000 });
     if(response.status !== 200) {
@@ -453,7 +485,7 @@ async function userLoginVerification(username: string, fingerprintPkCourant?: st
     }
 }
 
-async function createCertificateRequest(workers: AppWorkers, username: string, userId?: string): Promise<UserCertificateRequest> {
+export async function createCertificateRequest(workers: AppWorkers, username: string, userId?: string): Promise<UserCertificateRequest> {
     let request = await workers?.connection.createCertificateRequest(username, userId);
     console.debug("Certificate request : ", request);
 
@@ -511,6 +543,43 @@ async function registerUser(workers: AppWorkers, username: string, sessionDurati
     return await authenticateConnectionWorker(workers, username, true);
 }
 
+export async function prepareRenewalIfDue(workers: AppWorkers, certificate: certificates.CertificateWrapper): Promise<UserCertificateRequest | null> {
+    let expiration = certificate.certificate.notAfter;
+    let now = new Date();
+
+    let username = certificate.extensions?.commonName;
+    let userId = certificate.extensions?.userId;
+
+    if(!username || !userId) throw new Error("Invalid certificate, no commonName or userId");
+
+    if(now > expiration) {
+        // The certificate is expired. Remove it and generate new request.
+        updateUser({
+            username, certificate: undefined, 
+            // Legacy
+            certificat: undefined, clePriveePem: undefined, ca: undefined,
+        });
+        let entry = await createCertificateRequest(workers, username, userId);
+        return entry;
+    } else {
+        // Check if the certificate is about to expire (>2/3 duration)
+        let notBefore = certificate.certificate.notBefore;
+        let totalDuration = expiration.getTime() - notBefore.getTime();
+        let canRenewTs = Math.floor(totalDuration * 2/3 + notBefore.getTime());
+        let canRenew = new Date(canRenewTs);
+        console.debug("Can renew date : ", canRenew);
+
+        if(now > canRenew) {
+            // Generate a new certificate request
+            let userId: string | undefined = undefined;  // TODO : get userId
+            let entry = await createCertificateRequest(workers, username, userId);
+            return entry;
+        }
+    }
+
+    return null;
+}
+
 type PerformLoginResult = {
     register?: boolean,
     mustReconnectWorker?: boolean,
@@ -524,7 +593,7 @@ async function performLogin(workers: AppWorkers, username: string, sessionDurati
     let userDbInfo = await getUser(username)
     console.debug("User DB info ", userDbInfo);
 
-    let currentPublicKey: string | undefined;
+    // let currentPublicKey: string | undefined;
     let newPublicKey: string | undefined;
     if(userDbInfo) {
         // The user is locally known. Extract public keys.
@@ -533,39 +602,17 @@ async function performLogin(workers: AppWorkers, username: string, sessionDurati
 
         // Prepare information to generate challenges depending on server state.
         let certificateInfo = userDbInfo.certificate;
-        currentPublicKey = certificateInfo?.publicKeyString;
+        // currentPublicKey = certificateInfo?.publicKeyString;
         
         if(!newPublicKey && certificateInfo?.certificate) {
             // We have no pending certificate request. Check if the current certificate is expired (or about to).
             let wrapper = new certificates.CertificateWrapper(certificateInfo.certificate);
-            let expiration = wrapper.certificate.notAfter;
-            let now = new Date();
-            if(now > expiration) {
-                // The certificate is expired. Remove it and generate new request.
-                updateUser({
-                    username, certificate: undefined, 
-                    // Legacy
-                    certificat: undefined, clePriveePem: undefined, ca: undefined,
-                });
-                let userId: string | undefined = undefined;  // TODO : get userId
-                await createCertificateRequest(workers, username, userId);
-            }
-            // Check if the certificate is about to expire (>2/3 duration)
-            let notBefore = wrapper.certificate.notBefore;
-            let totalDuration = expiration.getTime() - notBefore.getTime();
-            let canRenewTs = Math.floor(totalDuration * 2/3 + notBefore.getTime());
-            let canRenew = new Date(canRenewTs);
-            console.debug("Can renew date : ", canRenew);
-
-            if(now > canRenew) {
-                // Generate a new certificate request
-                let userId: string | undefined = undefined;  // TODO : get userId
-                await createCertificateRequest(workers, username, userId);
-            }
+            wrapper.populateExtensions();
+            await prepareRenewalIfDue(workers, wrapper);
         }
     }
 
-    let loginInfo = await userLoginVerification(username, currentPublicKey, newPublicKey);
+    let loginInfo = await userLoginVerification(username);
     console.debug("userLoginVerification OK, result: ", loginInfo);
     if(loginInfo) {
         // The user exists
@@ -587,6 +634,7 @@ async function performLogin(workers: AppWorkers, username: string, sessionDurati
 type AuthenticationResponseType = {
     auth?: boolean,
     userId?: string,
+    certificat?: Array<string>,
 }
 
 async function certificateAuthentication(workers: AppWorkers, challenge: string, sessionDuration?: number): Promise<AuthenticationResponseType> {
@@ -651,8 +699,10 @@ type PrepareAuthenticationResult = {
     challengeReference: string,
 };
 
-async function prepareAuthentication(username: string, challengeWebauthn: AuthenticationChallengeType, requete: any, activationTierce: boolean): Promise<PrepareAuthenticationResult> {
-    console.debug("Preparer authentification avec : ", challengeWebauthn)
+async function prepareAuthentication(
+    username: string, challengeWebauthn: AuthenticationChallengeType, csr: string | null, activationTierce: boolean
+): Promise<PrepareAuthenticationResult> {
+    console.debug("Preparer authentification avec : %O, CSR: %s", challengeWebauthn, csr);
     if(!challengeWebauthn.publicKey) throw new Error("Challenge without the publicKey field");
 
     const challengeReference = challengeWebauthn.publicKey.challenge
@@ -668,29 +718,28 @@ async function prepareAuthentication(username: string, challengeWebauthn: Authen
         }
     });
 
-    let demandeCertificat = null
-    // if(requete) {
-    //     const csr = requete.csr || requete
-    //     // console.debug("On va hacher le CSR et utiliser le hachage dans le challenge pour faire une demande de certificat")
-    //     // if(props.appendLog) props.appendLog(`On va hacher le CSR et utiliser le hachage dans le challenge pour faire une demande de certificat`)
-    //     demandeCertificat = {
-    //         nomUsager: username,
-    //         csr,
-    //         date: Math.floor(new Date().getTime()/1000)
-    //     }
-    //     if(activationTierce === true) demandeCertificat.activationTierce = true
-    //     const hachageDemandeCert = await hacherMessage(demandeCertificat, {bytesOnly: true, hashingCode: 'blake2s-256'})
-    //     console.debug("Hachage demande cert %O = %O, ajouter au challenge existant de : %O", hachageDemandeCert, demandeCertificat, publicKey.challenge)
+    let demandeCertificat: {nomUsager: string, csr: string, date: number, activationTierce?: boolean} | null = null;
+    if(csr) {
+        demandeCertificat = {
+            nomUsager: username,
+            csr,
+            date: Math.floor(new Date().getTime()/1000),
+        }
+        if(activationTierce === true) demandeCertificat.activationTierce = true
+        let requestBytes = new TextEncoder().encode(stringify(demandeCertificat));
+        const hachageDemandeCert = await digest.digest(requestBytes, {digestName: 'blake2s-256', encoding: 'bytes'});
+        if(typeof(hachageDemandeCert) === 'string') throw new Error("Wrong digest response type");
+        console.debug("Hachage demande cert %O = %O, ajouter au challenge existant de : %O", hachageDemandeCert, demandeCertificat, publicKey.challenge)
         
-    //     // Concatener le challenge recu (32 bytes) au hachage de la commande
-    //     // Permet de signer la commande de demande de certificat avec webauthn
-    //     const challengeMaj = new Uint8Array(64)
-    //     challengeMaj.set(publicKey.challenge, 0)
-    //     challengeMaj.set(hachageDemandeCert, 32)
-    //     publicKey.challenge = challengeMaj
+        // Concatener le challenge recu (32 bytes) au hachage de la commande
+        // Permet de signer la commande de demande de certificat avec webauthn
+        const challengeMaj = new Uint8Array(64)
+        challengeMaj.set(publicKey.challenge, 0)
+        challengeMaj.set(hachageDemandeCert, 32)
+        publicKey.challenge = challengeMaj
 
-    //     console.debug("Challenge override pour demander signature certificat : %O", publicKey.challenge)
-    // } 
+        console.debug("Challenge override pour demander signature certificat : %O", publicKey.challenge)
+    } 
 
     const resultat = { publicKey, demandeCertificat, challengeReference }
     console.debug("Prep publicKey/demandeCertificat : %O", resultat)
@@ -708,10 +757,36 @@ async function authenticate(workers: AppWorkers, username: string, demandeCertif
     console.debug("Data a soumettre pour reponse webauthn : %O", data)
     const resultatAuthentification = await axios.post('/auth/authentifier_usager', data)
     console.debug("Resultat authentification : %O", resultatAuthentification)
-    const reponse = resultatAuthentification.data
-    const contenu = JSON.parse(reponse.contenu) as AuthenticationResponseType;
+    const authResponse = resultatAuthentification.data
+    const responseContent = JSON.parse(authResponse.contenu) as AuthenticationResponseType;
 
-    if(contenu.auth && contenu.userId) {
+    if(responseContent.auth && responseContent.userId) {
+
+        if(responseContent.certificat) {
+            // Save the new certificate over the old one
+            // Get the newly generated certificate chain. The last one is the CA, remove it from the chain.
+            let certificate = responseContent.certificat;
+            let ca = certificate.pop();
+
+            let userIdb = await getUser(username);
+            let certificateRequest = userIdb?.request;
+            if(!certificateRequest) {
+                throw new Error("Error during certificate renewal, no active certificate available");
+            }
+
+            let certificateEntry = {
+                certificate,
+                publicKey: certificateRequest.publicKey,
+                privateKey: certificateRequest.privateKey,
+                publicKeyString: certificateRequest.publicKeyString,
+            };
+            await updateUser({
+                username, certificate: certificateEntry,
+                request: undefined, // Remove previous request
+                // legacy
+                ca, certificat: certificate, clePriveePem: certificateRequest.privateKeyPem,
+            });
+        }
 
         // Activate the server session
         await performLogin(workers, username, sessionDuration);

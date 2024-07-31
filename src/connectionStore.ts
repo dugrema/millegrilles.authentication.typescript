@@ -13,6 +13,8 @@ interface ConnectionStoreState {
     signatureReady: boolean,
     connectionAuthenticated: boolean,
     mustManuallyAuthenticate: boolean,
+    certificateRemoteVersions?: {version: number, date: number},
+    certificateRenewable: boolean,
     setFiche: (idmg: string, ca: string, chiffrage: Array<Array<string>>) => void,
     setUserSessionActive: (userSessionActive: boolean) => void,
     setUsername: (newUsername: string) => void,
@@ -23,6 +25,8 @@ interface ConnectionStoreState {
     setWorkersRetryReady: () => void,
     setConnectionAuthenticated: (connectionAuthenticated: boolean) => void,
     setMustManuallyAuthenticate: (mustManuallyAuthenticate: boolean) => void,
+    setCertificateRemoteVersions: (certificateRemoteVersions?: {version: number, date: number}) => void,
+    setCertificateRenewable: (certificateRenewable: boolean) => void,
 };
 
 const useConnectionStore = create<ConnectionStoreState>()(
@@ -39,6 +43,8 @@ const useConnectionStore = create<ConnectionStoreState>()(
             signatureReady: false,
             connectionAuthenticated: false,
             mustManuallyAuthenticate: false,
+            certificateRemoteVersions: undefined,
+            certificateRenewable: false,
             setFiche: (idmg, ca, chiffrage) => set(() => ({ idmg, ca, chiffrage })),
             setUsername: (username) => set(() => ({ username })),
             setUserSessionActive: (userSessionActive) => set(() => ({ userSessionActive })),
@@ -49,6 +55,8 @@ const useConnectionStore = create<ConnectionStoreState>()(
             setWorkersRetryReady: () => set((state) => ({ workersRetry: {retry: true, count: state.workersRetry.count } })),
             setConnectionAuthenticated: (connectionAuthenticated) => set(() => ({ connectionAuthenticated })),
             setMustManuallyAuthenticate: (mustManuallyAuthenticate) => set(() => ({ mustManuallyAuthenticate })),
+            setCertificateRemoteVersions: (certificateRemoteVersions) => set(() => ({certificateRemoteVersions})),
+            setCertificateRenewable: (certificateRenewable) => set(() => ({ certificateRenewable }))
         })
     ),
 );
