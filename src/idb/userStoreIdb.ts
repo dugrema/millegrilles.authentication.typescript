@@ -3,7 +3,7 @@ import { IDBPDatabase, openDB as openDbIdb } from 'idb';
 const DB_NAME = 'millegrilles';
 const STORE_USERS = 'usagers';
 const STORE_KEYS = 'cleDechiffrees';
-const DB_VERSION_CURRENT = 2;
+const DB_VERSION_CURRENT = 1;
 const MAX_AGE_DEFAULT = 6 * 60 * 60 * 1_000;  // 6h in ms
 
 // const STORE_KEYS_FIELDS = ['iv', 'nonce', 'tag', 'header', 'format', 'verification'];

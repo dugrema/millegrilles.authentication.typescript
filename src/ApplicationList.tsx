@@ -1,13 +1,15 @@
 import { useState, useCallback, useEffect, MouseEvent, MouseEventHandler, Dispatch, SyntheticEvent } from 'react';
 import { Popover } from 'flowbite-react';
 import { createCertificateRequest, LanguageSelectbox, prepareAuthentication, PrepareAuthenticationResult, prepareRenewalIfDue, signAuthenticationRequest } from './Login';
-import KeyIcon from './resources/key-svgrepo-com.svg';
-import StarIcon from './resources/collect-svgrepo-com.svg';
-import SwitchIcon from './resources/switch-svgrepo-com.svg';
 import VersionInfo from './VersionInfo';
 import useUserStore from './connectionStore';
 import useWorkers from './workers/workers';
 import { getUser, updateUser } from './idb/userStoreIdb';
+
+import KeyIcon from './resources/key-svgrepo-com.svg';
+import StarIcon from './resources/collect-svgrepo-com.svg';
+import SwitchIcon from './resources/switch-svgrepo-com.svg';
+import ForwardIcon from './resources/forward-svgrepo-com.svg';
 
 type ApplicationListProps = {
     logout: MouseEventHandler<MouseEvent>,
@@ -101,39 +103,50 @@ function LanguagePopover() {
     )
 }
 
+type InstalledApplicationType = {
+    application: string,
+    instance_id: string,
+    name_property: string,
+    securite: string,
+    url: string,
+}
+
 function InstalledApplications() {
 
     let workers = useWorkers();
-    let [apps, setApps] = useState<Array<Object>>([]);
+    let [apps, setApps] = useState<Array<InstalledApplicationType>>([]);
 
     useEffect(()=>{
         if(!workers) return;
-
         console.debug("Load application list");
         workers.connection.getApplicationList()
             .then(result=>{
                 console.debug("Result ", result);
+                if(result.ok) {
+                    // @ts-ignore
+                    let apps = result.resultats as any;
+                    setApps(apps);
+                }
             })
             .catch(err=>console.error("Error loading application list", err));
-
-    }, [workers])
+    }, [workers, setApps])
 
     let list = apps.map((app, idx)=>{
         console.debug("App ", app);
         return (
             <div key={''+idx} className='border-t border-l border-r border-slate-500 text-start p-2 w-full'>
-                <button className='font-semibold hover:underline' value='AddSecurityDevice'>
-                    <img src={KeyIcon} className="inline w-10 mr-1" alt='key icon' />
-                    Add security device
-                </button>
+                <a href={app.url} className='font-semibold hover:underline'>
+                    <img src={ForwardIcon} className="inline w-10 mr-1" alt='key icon' />
+                    {app.name_property}
+                </a>
                 <blockquote className='text-left h-18 line-clamp-6 sm:line-clamp-3 text-sm'>
-                    Add a new security device to access your account. This can be a USB security token, Apple/Android device, etc. 
+                    
                 </blockquote>
             </div>
         )
     });
 
-    return <div>{list}</div>;
+    return <>{list}</>;
 }
 
 function VerifyCertificateRenewal() {
@@ -264,7 +277,7 @@ function RenewCertificate() {
                     // Update the message factory to start using the new certificate immediately
                     await workers?.connection.prepareMessageFactory(certificateRequest.privateKey, certificate);
 
-                    // Cleanup screen
+                    // Cleanup screen, this removes the <RenewCertificate> element.
                     setCertificateRemoteVersions(undefined);
                     setCertificateRenewable(false);
                 }
