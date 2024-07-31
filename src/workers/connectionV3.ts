@@ -42,6 +42,7 @@ export type RoutedMessageProps = {
 
 export type MessageResponse = {
     ok?: boolean,
+    code?: number,
     err?: string,
     __original?: messageStruct.MilleGrillesMessage,
     __certificate?: certificates.CertificateWrapper,
@@ -53,7 +54,7 @@ export default class ConnectionSocketio {
     serverUrl?: string;
     params?: {path: string, reconnection: boolean, transports: Array<string>, reconnectionDelay?: number};
     connectionParams?: {};
-    messageSigner?: MessageFactory;
+    messageFactory?: MessageFactory;
     socket?: Socket;
     certificateStore?: certificates.CertificateStore;
     callback?: (params: ConnectionCallbackParameters) => void;
@@ -207,7 +208,12 @@ export default class ConnectionSocketio {
      * @param certificate A user's certificate
      */
     prepareMessageFactory(signingKey: ed25519.MessageSigningKey) {
-        this.messageSigner = new MessageFactory(signingKey);
+        signingKey.certificate.populateExtensions();
+        this.messageFactory = new MessageFactory(signingKey);
+    }
+
+    getMessageFactoryCertificate(): certificates.CertificateWrapper | undefined {
+        return this.messageFactory?.signingKey.certificate;
     }
 
     /**
@@ -219,8 +225,8 @@ export default class ConnectionSocketio {
      * @returns 
      */
     async createRoutedMessage(kind: messageStruct.MessageKind, content: Object, routing: messageStruct.Routage, timestamp?: Date) {
-        if(!this.messageSigner) throw new Error('Signing key is not loaded');
-        return await this.messageSigner.createRoutedMessage(kind, content, routing, timestamp);
+        if(!this.messageFactory) throw new Error('Signing key is not loaded');
+        return await this.messageFactory.createRoutedMessage(kind, content, routing, timestamp);
     }
 
     /**
@@ -230,8 +236,8 @@ export default class ConnectionSocketio {
      * @returns 
      */
     async createResponse(content: Object, timestamp?: Date) {
-        if(!this.messageSigner) throw new Error('Signing key is not loaded');
-        return await this.messageSigner.createResponse(content, timestamp);
+        if(!this.messageFactory) throw new Error('Signing key is not loaded');
+        return await this.messageFactory.createResponse(content, timestamp);
     }
 
     /**
@@ -331,7 +337,7 @@ export default class ConnectionSocketio {
     async sendRequest(message: Object, domain: string, action: string, props?: SendProps): Promise<MessageResponse> {
         let routing: {domaine: string, action: string, partition?: string} = {domaine: domain, action};
         if(props?.partition) routing.partition = props.partition;
-        let request = await this.messageSigner?.createRoutedMessage(messageStruct.MessageKind.Request, message, routing, new Date());
+        let request = await this.messageFactory?.createRoutedMessage(messageStruct.MessageKind.Request, message, routing, new Date());
         if(!request) throw new Error("Error generating request: null");
         if(props?.attachments) request.attachements = props.attachments;
         let eventName = props?.eventName || 'route_message';
@@ -341,7 +347,7 @@ export default class ConnectionSocketio {
     async sendCommand(message: Object, domain: string, action: string, props?: SendProps): Promise<MessageResponse> {
         let routing: {domaine: string, action: string, partition?: string} = {domaine: domain, action};
         if(props?.partition) routing.partition = props.partition;
-        let command = await this.messageSigner?.createRoutedMessage(messageStruct.MessageKind.Command, message, routing, new Date());
+        let command = await this.messageFactory?.createRoutedMessage(messageStruct.MessageKind.Command, message, routing, new Date());
         if(!command) throw new Error("Error generating command: null");
         if(props?.attachments) command.attachements = props.attachments;
         let eventName = props?.eventName || 'route_message';

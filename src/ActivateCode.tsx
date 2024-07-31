@@ -1,7 +1,9 @@
-import { useState, useCallback, useMemo, FormEventHandler } from 'react';
+import { useState, useCallback, useMemo, useEffect, FormEventHandler, Dispatch } from 'react';
 import { FileInput } from 'flowbite-react';
-import useUserStore from './connectionStore';
-
+import useConnectionStore from './connectionStore';
+import useWorkers, { AppWorkers } from './workers/workers';
+import { DelegationChallengeType } from './workers/connection.worker';
+import { certificates, ed25519, forgeCsr, messageStruct } from 'millegrilles.cryptography';
 
 type ActivateCodeProps = {
     back: any,
@@ -20,7 +22,7 @@ const CLASSNAME_BUTTON = `
 
 function ActivateCode(props: ActivateCodeProps) {
 
-    const username = useUserStore(state=>state.username);
+    const username = useConnectionStore(state=>state.username);
 
     let [uploadKey, setUploadKey] = useState(false);
     let [activationOk, setActivationOk] = useState(false);
@@ -65,48 +67,67 @@ export default ActivateCode;
 
 function UploadKey(props: ActivateCodeProps) {
 
-    const username = useUserStore(state=>state.username);
+    let workers = useWorkers();
+
+    const username = useConnectionStore(state=>state.username);
     
     let [password, setPassword] = useState('')
     let [invalidKey, setInvalidKey] = useState(false);
     let [installCertificate, setInstallCertificate] = useState(false);
+    let [challenge, setChallenge] = useState<DelegationChallengeType>();
+    let [uploadedKey, setUploadedKey] = useState<SystemKeyfileType>();
 
-    let formSubmitHandler = useCallback((e: React.FormEvent<HTMLInputElement>)=>{
-        e.preventDefault();
-        e.stopPropagation();
-        if(password === 'bad') {
-            setInvalidKey(true);
-            return false;
-        } else {
-            setInvalidKey(false);
-            setInstallCertificate(true);
-        }
-    }, [password, setInvalidKey, setInstallCertificate]) as FormEventHandler;
+    let uploadKeyHandler = useCallback((e: React.FormEvent<HTMLInputElement>)=>{
+        let files = e.currentTarget.files;
+        if(!files) throw new Error("No file received");
+        let file = files[0];
+
+        file.arrayBuffer()
+            .then(fileContent => {
+                // Parse the json file content
+                let content = new TextDecoder().decode(fileContent);
+                let key = JSON.parse(content);
+                setUploadedKey(key);
+            })
+            .catch(err=>console.error("Error parsing key file", err));
+    }, [setUploadedKey]);
+
+    let checkKeyHandler = useCallback((e: React.FormEvent<HTMLInputElement>)=>{
+        if(!workers || !challenge || !uploadedKey) return;
+        activateDelegation(workers, challenge, uploadedKey, password)
+            .then(result=>{
+                console.debug("Key activation result ", result);
+            })
+            .catch(err=>console.error("Error activating key ", err));
+    }, [workers, challenge, password, uploadedKey, setInvalidKey, setInstallCertificate]) as FormEventHandler;
 
     let passwordChangeHandler = useCallback((e: React.FormEvent<HTMLInputElement>)=>{
         setPassword(e.currentTarget?e.currentTarget.value:'');
     }, [setPassword]) as FormEventHandler;
 
     let showInstall = !invalidKey && installCertificate;
+    let ready = (password && uploadedKey && challenge)?true:false;
 
     return (
         <div className={'grid grid-cols-1 justify-items-center'}>
             <p className='text-3xl font-bold text-slate-400 pb-10'>Upload a key</p>
             <p>This is for your {username} account.</p>
 
-            <form onSubmit={formSubmitHandler}>
-                <div className='flex flex-col MessageBox min-w-80 border-4 border-slate-500 shadow-2xl rounded-xl p-8 bg-slate-900 text-slate-300 text-start space-y-4'>
-                    {showInstall?
-                        <InstallCertificate {...props} />
-                    :
-                        <UploadKeyForm {...props} 
-                            password={password} 
-                            passwordChangeHandler={passwordChangeHandler} 
-                            invalidKey={invalidKey} />
-                    }
-                    
-                </div>
-            </form>
+            <div className='flex flex-col MessageBox min-w-80 border-4 border-slate-500 shadow-2xl rounded-xl p-8 bg-slate-900 text-slate-300 text-start space-y-4'>
+                {showInstall?
+                    <InstallCertificate {...props} />
+                :
+                    <UploadKeyForm {...props} 
+                        password={password} 
+                        passwordChangeHandler={passwordChangeHandler} 
+                        invalidKey={invalidKey}
+                        checkKeyHandler={checkKeyHandler} 
+                        setChallenge={setChallenge} 
+                        uploadKey={uploadKeyHandler} 
+                        ready={ready} />
+                }
+                
+            </div>
 
         </div>        
     )
@@ -117,32 +138,65 @@ type UploadKeyFormProps = {
     password: string,
     invalidKey: boolean,
     passwordChangeHandler: FormEventHandler,
+    checkKeyHandler: FormEventHandler,
+    setChallenge: Dispatch<DelegationChallengeType>,
+    uploadKey: FormEventHandler<HTMLInputElement>,
+    ready: boolean,
 };
 
 function UploadKeyForm(props: UploadKeyFormProps) {
 
+    let workers = useWorkers();
+
     let invalidKey = props.invalidKey;
+    let setChallenge = props.setChallenge;
+    let ready = props.ready;
 
     let classnameMessageInvalid = useMemo(()=>{
         if(invalidKey) return '';
         return 'hidden';
     }, [invalidKey])
 
+    useEffect(()=>{
+        if(!workers) return;
+        let hostname = window.location.hostname;
+        workers.connection.generateWebauthChallenge({hostname, delegation: true})
+            .then(result=>{
+                if(result.delegation_challenge) {
+                    setChallenge(result.delegation_challenge)
+                } else {
+                    console.error("No delegation challenge received");
+                }
+            })
+            .catch(err=>{
+                console.error("Error retrieving challenge ", err);
+                // erreurCb(err, 'Erreur reception challenge de delegation du serveur')
+            })
+    }, [workers, setChallenge])
+
+    // The password for system keys is a critical piece of security. It must not be saved.
+    // Password protection : https://stackoverflow.com/questions/41945535/html-disable-password-manager
+
     return (
         <>
-            <label htmlFor='password' className='min-w-full'>Password</label>
+            <input id='foilautofill' name='foilautofill' type='text' className='hidden' value='DO NOT SAVE' />
+            <input name='notautofilledpassword-1' type='password' className='hidden' value='Protecting the password' />
+            <input name='notautofilledpassword-2' type='password' className='hidden' value='Protecting the password' />
+            <input name='notautofilledpassword-3' type='password' className='hidden' value='Protecting the password' />
+            <label htmlFor='real' className='min-w-full'>Password</label>
             <input 
-                id='password' type='password' placeholder="The password if provided." autoComplete="off"
+                id='real' type='password' placeholder="The password if provided." autoComplete="new-password"
                 value={props.password} onChange={props.passwordChangeHandler}
                 className='w-80 bg-slate-700 text-slate-300 hover:bg-slate-500 hover:ring-offset-1 hover:ring-1 focus:bg-indigo-700' 
                 />
 
             <label htmlFor='file-upload'>Key file upload</label>
             <FileInput id='file-upload' sizing='sm' className='w-full max-w-80 overflow-hidden' required accept='application/json'
+                onChange={props.uploadKey}
                 helperText='Supported format is .json' />
 
             <div className='flex min-w-full col-span-3 pt-6 justify-center'>
-                <input type='submit' className={CLASSNAME_BUTTON+'bg-indigo-700 text-slate-300 '} value='Next' />
+                <button onClick={props.checkKeyHandler} className={CLASSNAME_BUTTON+'bg-indigo-700 text-slate-300'} disabled={!ready}>Next</button>
                 <button onClick={props.back} className={CLASSNAME_BUTTON+'bg-slate-700 text-slate-300 '}>Cancel</button>
             </div>
 
@@ -201,4 +255,65 @@ function MessageBoxActivationOk(props: MessageBoxActivationOkProps) {
             </div>
         </>
     )
+}
+
+type SystemKeyfileType = {
+    idmg: string,
+    racine: {certificat: string, cleChiffree: string}
+};
+
+async function activateDelegation(workers: AppWorkers, challenge: DelegationChallengeType, keyFile: SystemKeyfileType, password: string) {
+
+    let privateCaKey = forgeCsr.loadPrivateKey(keyFile.racine.cleChiffree, password);
+    let caCertificate = certificates.wrapperFromPems([keyFile.racine.certificat]);
+    let caSigningKey = await ed25519.newMessageSigningKey(privateCaKey, caCertificate);
+
+    // Load the username/userId from the current signing certificate in the connexion worker
+    let userCertificate = await workers.connection.getMessageFactoryCertificate();
+    if(!userCertificate) throw new Error("The connection's message factory is not initialized");
+    let username = userCertificate.extensions?.commonName;
+    let userId = userCertificate.extensions?.userId;
+    if(!username || !userId) throw new Error("The username/userId is missing from the certificate");
+
+    const preuve = await authentiferCleMillegrille(username, userId, caSigningKey, challenge, {activateDelegation: true});
+
+    const command = {
+        confirmation: preuve,
+        userId,
+        nomUsager: username,
+        hostname: window.location.hostname,
+    }
+
+    let result = await workers.connection.addAdministratorRole(command);
+    console.debug("Result ", result);
+    if(result.delegation_globale !== 'proprietaire')  {
+        console.error("Error delegation ", result);
+        throw new Error("Error adding administrator role: " + result.err);
+    }
+
+    // Success
+}
+
+type CertificateSigningResponseType = {
+    challenge: string,
+    nomUsager: string,
+    userId?: string,
+    activerDelegation?: boolean,
+};
+
+export async function authentiferCleMillegrille(
+    username: string, userId: string, caSigningKey: ed25519.MessageSigningKey, challenge: string, props?: {activateDelegation?: boolean}
+): Promise<messageStruct.MilleGrillesMessage> {
+    let reponseCertificat: CertificateSigningResponseType = {
+      challenge,
+      nomUsager: username,
+      userId,
+    };
+
+    if(props?.activateDelegation) reponseCertificat.activerDelegation = true
+ 
+    let signedMessage = await messageStruct.createDocument(caSigningKey, reponseCertificat);
+    delete signedMessage['certificat'];  // Remove the certificate (it's the CA, it is redundant)
+
+    return signedMessage;
 }

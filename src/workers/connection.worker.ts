@@ -15,7 +15,7 @@ export type AuthenticationChallengeType = {
     },
 
 };
-export type DelegationChallengeType = any;
+export type DelegationChallengeType = string;
 export type RegistrationChallengeType = {
     publicKey: {
         attestation?: string,
@@ -33,6 +33,15 @@ export type WebauthChallengeResponse = {
     authentication_challenge?: AuthenticationChallengeType,
     delegation_challenge?: DelegationChallengeType,
     registration_challenge?: RegistrationChallengeType,
+};
+
+type AddAdministratorRoleResponse = MessageResponse & {
+    nomUsager?: string,
+    userId?: string,
+    compte_prive?: boolean,
+    delegation_globale?: string,
+    delegations_date?: number,
+    delegations_version?: number,
 };
 
 export class AuthenticationConnectionWorker extends ConnectionWorker {
@@ -69,6 +78,23 @@ export class AuthenticationConnectionWorker extends ConnectionWorker {
         return response;
     }
 
+    async getApplicationList() {
+        if(!this.connection) throw new Error("Connection is not initialized");
+        return this.connection.sendRequest({}, 'CoreTopologie', 'listeApplicationsDeployees', {eventName: 'request_application_list'});
+    }
+
+    /**
+     * @returns Current user certificate used for signing messsages.
+     */
+    async getMessageFactoryCertificate() {
+        if(!this.connection) throw new Error("Connection is not initialized");
+        return this.connection.getMessageFactoryCertificate();
+    }
+    
+    async addAdministratorRole(command: Object): Promise<AddAdministratorRoleResponse> {
+        if(!this.connection) throw new Error("Connection is not initialized");
+        return this.connection.sendCommand(command, 'CoreMaitreDesComptes', 'ajouterDelegationSignee');
+    }
 }
 
 var worker = new AuthenticationConnectionWorker();

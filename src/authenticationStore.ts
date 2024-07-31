@@ -16,7 +16,7 @@ const useAuthenticationStore = create<AuthenticationStoreState>()(
         persist(
             (set) => ({
                 username: '',
-                sessionDuration: 3600,
+                sessionDuration: 86400,
                 setUsername: (username) => set(() => ({ username })),
                 setSessionDuration: (sessionDuration) => set(() => ({ sessionDuration })),
             }),

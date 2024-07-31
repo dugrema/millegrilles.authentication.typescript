@@ -1,4 +1,4 @@
-import {useCallback, MouseEvent, MouseEventHandler, Dispatch, SyntheticEvent} from 'react';
+import { useState, useCallback, useEffect, MouseEvent, MouseEventHandler, Dispatch, SyntheticEvent } from 'react';
 import { Popover } from 'flowbite-react';
 import { LanguageSelectbox } from './Login';
 import KeyIcon from './resources/key-svgrepo-com.svg';
@@ -7,6 +7,7 @@ import SwitchIcon from './resources/switch-svgrepo-com.svg';
 // import SetUpIcon from './resources/set-up-svgrepo-com.svg';
 import VersionInfo from './VersionInfo';
 import useUserStore from './connectionStore';
+import useWorkers from './workers/workers';
 
 type ApplicationListProps = {
     logout: MouseEventHandler<MouseEvent>,
@@ -37,6 +38,7 @@ function ApplicationList(props: ApplicationListProps) {
             </div>
             <p className='text-3xl font-bold text-slate-400 pb-10'>MilleGrilles applications</p>
             <div className='grid grid-cols-1 px-4 md:px-20 lg:px-56 justify-items-center'>
+                
                 <div className='border-t border-l border-r rounded-t-lg border-slate-500 text-start p-2 w-full'>
                     <button className='font-semibold hover:underline' onClick={sectionChangeHandler} value='ActivateCode'>
                         <img src={KeyIcon} className="inline w-10 mr-1" alt='key icon' />
@@ -46,6 +48,7 @@ function ApplicationList(props: ApplicationListProps) {
                         Activate another device on this account using an activation code (e.g. abcd-1234) or QR code.
                     </blockquote>
                 </div>
+                
                 <div className='border-t border-l border-r border-slate-500 text-start p-2 w-full'>
                     <button className='font-semibold hover:underline' onClick={sectionChangeHandler} value='AddSecurityDevice'>
                         <img src={KeyIcon} className="inline w-10 mr-1" alt='key icon' />
@@ -55,6 +58,9 @@ function ApplicationList(props: ApplicationListProps) {
                         Add a new security device to access your account. This can be a USB security token, Apple/Android device, etc. 
                     </blockquote>
                 </div>
+
+                <InstalledApplications />
+
                 <div className='border rounded-b-lg border-slate-500 text-start p-2 w-full'>
                     <button className='hover:underline font-semibold' onClick={logoutClickHandler}>
                         <img src={SwitchIcon} className="inline w-10 mr-1" alt='swtich icon' />
@@ -62,6 +68,7 @@ function ApplicationList(props: ApplicationListProps) {
                     </button>
                     <blockquote className='text-left h-18 line-clamp-6 sm:line-clamp-3 text-sm'>Close session and clear secrets.</blockquote>
                 </div>
+            
             </div>
             <VersionInfo />
         </div>
@@ -88,4 +95,39 @@ function LanguagePopover() {
             <button className='underline'>Hi</button>
         </Popover>
     )
+}
+
+function InstalledApplications() {
+
+    let workers = useWorkers();
+    let [apps, setApps] = useState<Array<Object>>([]);
+
+    useEffect(()=>{
+        if(!workers) return;
+
+        console.debug("Load application list");
+        workers.connection.getApplicationList()
+            .then(result=>{
+                console.debug("Result ", result);
+            })
+            .catch(err=>console.error("Error loading application list", err));
+
+    }, [workers])
+
+    let list = apps.map((app, idx)=>{
+        console.debug("App ", app);
+        return (
+            <div key={''+idx} className='border-t border-l border-r border-slate-500 text-start p-2 w-full'>
+                <button className='font-semibold hover:underline' value='AddSecurityDevice'>
+                    <img src={KeyIcon} className="inline w-10 mr-1" alt='key icon' />
+                    Add security device
+                </button>
+                <blockquote className='text-left h-18 line-clamp-6 sm:line-clamp-3 text-sm'>
+                    Add a new security device to access your account. This can be a USB security token, Apple/Android device, etc. 
+                </blockquote>
+            </div>
+        )
+    });
+
+    return <div>{list}</div>;
 }

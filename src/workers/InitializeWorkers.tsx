@@ -20,7 +20,6 @@ function InitializeWorkers() {
     let setWorkersReady = useConnectionStore((state) => state.setWorkersReady);
     let setFiche = useConnectionStore((state) => state.setFiche);
     let setUsername = useConnectionStore((state) => state.setUsername);
-    let setUserId = useConnectionStore((state) => state.setUserId);
     let setUserSessionActive = useConnectionStore((state) => state.setUserSessionActive);
     let setMustManuallyAuthenticate = useConnectionStore((state) => state.setMustManuallyAuthenticate);
 
@@ -34,7 +33,6 @@ function InitializeWorkers() {
             setConnectionReady(params.connected);
             if (params.username && params.userId && params.authenticated) {
                 setUsername(params.username);
-                setUserId(params.userId);
                 setUserSessionActive(params.authenticated);
             }
             if(params.authenticated !== undefined && !params.authenticated) {
@@ -42,7 +40,7 @@ function InitializeWorkers() {
                 setMustManuallyAuthenticate(true);
             }
         });
-    }, [setConnectionReady, setMustManuallyAuthenticate, setUsername, setUserId, setUserSessionActive]);
+    }, [setConnectionReady, setMustManuallyAuthenticate, setUsername, setUserSessionActive]);
 
     // Load the workers with a useMemo that returns a Promise. Allows throwing the promise
     // and catching it with the <React.Suspense> element in index.tsx.
@@ -71,7 +69,6 @@ function InitializeWorkers() {
                 console.debug("User session status : %O, username: %s, userId: %s", userStatus, username, userId);
                 setUserSessionActive(userStatus === 200);
                 if(username) setUsername(username);
-                if(userId) setUserId(userId);
 
                 let result = await initWorkers(connectionCallback) as InitWorkersResult;
                 // Success.
@@ -101,7 +98,6 @@ function InitializeWorkers() {
             setWorkersReady,
             setUserSessionActive,
             setUsername,
-            setUserId,
             connectionCallback,
     ]);
 
