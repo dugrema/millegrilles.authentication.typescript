@@ -62,10 +62,10 @@ function Login() {
         if(webauthnChallenge) {
             // Immediately sign the challenge - allows for 1-pass on iOS
             authenticate(workers, username, webauthnChallenge.demandeCertificat, webauthnChallenge.publicKey, sessionDuration)
-                .then(()=>{
+                .then(async () => {
                     setUsernameStore(username);
-                    setConnectionAuthenticated(true);
                     setMustManuallyAuthenticate(false);
+                    setConnectionAuthenticated(true);
 
                     // Persist information for next time the screen is loaded
                     setUsernamePersist(username);
@@ -84,6 +84,11 @@ function Login() {
                     setRegister(true);
                 } else if(result.authenticated) {
                     setMustManuallyAuthenticate(false);
+
+                    // Connect the worker
+                    let authResult = await workers?.connection.authenticate();
+                    console.debug("Auth result ", authResult);
+                    if(!authResult) throw new Error("Authentication error");
                     setConnectionAuthenticated(true);
 
                     // Persist information for next time the screen is loaded
@@ -692,7 +697,7 @@ export async function authenticateConnectionWorker(workers: AppWorkers, username
     await workers.connection.prepareMessageFactory(privateKey, certificate);
 
     // Authenticate the connection
-    await workers.connection.authenticate();
+    if(!await workers.connection.authenticate(true)) throw new Error('Authentication failed (api mapping)');
 
     return { authenticated: true };
 }

@@ -354,14 +354,20 @@ export default class ConnectionSocketio {
         return await this.emitWithAck(eventName, command, props);
     }
 
-    async authenticate(apiMapping?: Object) {
+    async authenticate(apiMapping?: Object, reconnect?: boolean) {
+        if(reconnect) {
+            // Reconnect to get the latest request headers (HTTP session).
+            this.socket?.disconnect();
+            await this.connect();
+        }
+
         // Faire une requete pour upgrader avec le certificat
         let challengeResponse = await this.emitWithAck('genererChallengeCertificat', null, {noverif: true});
         let data = {...challengeResponse.challengeCertificat};
 
         let authenticationResponse = await this.sendCommand(
             data, 'authentication', 'authenticate', 
-            {attachments: {apiMapping: apiMapping}, eventName: 'authentication_authenticate'}
+            {attachments: { apiMapping }, eventName: 'authentication_authenticate'}
         );
         return authenticationResponse.ok === true;
     }

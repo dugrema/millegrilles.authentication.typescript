@@ -61,9 +61,9 @@ type CurrentUserDetailType = {
 
 export class AuthenticationConnectionWorker extends ConnectionWorker {
 
-    async authenticate() {
+    async authenticate(reconnect?: boolean) {
         if(!this.connection) throw new Error("Connection is not initialized");
-        return await this.connection.authenticate(apiMapping);
+        return await this.connection.authenticate(apiMapping, reconnect);
     }
 
     async registerAccount(username: string, csr: string): Promise<{ok?: boolean, certificat?: Array<string>}> {
