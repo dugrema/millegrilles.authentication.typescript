@@ -18,10 +18,17 @@
         "applicationVersion": "Version: ",
         "applicationBuildDate": "Build Date: ",
         "applicationIdmg": "IDMG: ",
-        "versionInformation": "Version information"
+        "versionInformation": "Version information",
+        "activationCode": "Activation code"
     },
     "buttons": {
         "next": "Next",
         "cancel": "Cancel"
+    },
+    "screens": {
+        "recovery": {
+            "instructions1": "The authentication using security devices for your {{username}} account has failed.",
+            "instructions2": "To access your account, use the following activation code from another mobile device or computer. You can also provide it to the system owner to restore your access."
+        }
     }
 }

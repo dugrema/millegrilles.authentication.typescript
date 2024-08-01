@@ -13,10 +13,17 @@
         "applicationVersion": "Version : ",
         "applicationBuildDate": "Date : ",
         "applicationIdmg": "IDMG : ",
-        "versionInformation": "Information sur la version"
+        "versionInformation": "Information sur la version",
+        "activationCode": "Code d'activation"
     },
     "buttons": {
         "next": "Suivant",
         "cancel": "Annuler"
-    }    
+    },
+    "screens": {
+        "recovery": {
+            "instructions1": "L'authentification de votre compte {{username}} a échoué.",
+            "instructions2": "Pour accéder à votre compte, utilisez le code d'activation ci-bas à partir d'un autre appareil. Vous pouvez aussi acheminer ce code au propriétaire du système pour qu'il vous redonne accès."
+        }
+    }
 }

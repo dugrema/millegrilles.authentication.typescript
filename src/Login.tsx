@@ -371,6 +371,7 @@ type UserSelectionProps = {
 };
 
 function UserSelection(props: UserSelectionProps) {
+    let { t } = useTranslation();
 
     let [users, setUsers] = useState<Array<string>|null>(null);
 
@@ -384,7 +385,7 @@ function UserSelection(props: UserSelectionProps) {
 
     return (
         <>
-            <label htmlFor='username' className='pr-4'>Username</label>
+            <label htmlFor='username' className='pr-4'>{t('labels.username')}</label>
             <input type="text" className='hidden' name='foilautocomplete' />
             <input 
                 id='username' type='text' list='usernames' autoComplete='off'
@@ -493,21 +494,11 @@ function RecoveryScreen(props: RecoveryScreenProps) {
     return (
         <div className='MessageBox grid grid-cols-3 min-w-80 max-w-lg border-4 border-slate-500 shadow-2xl rounded-xl p-8 bg-slate-900 text-slate-300 justify-items-end'>
 
-            <p className='col-span-3 text-left mb-4'>
-                The authentication using security devices for your {username} account has failed.
-            </p>
+            <p className='col-span-3 text-left mb-4'>{t('screens.recovery.instructions1', {username})}</p>
+            <p className='col-span-3 text-left mb-4'>{t('screens.recovery.instructions2')}</p>
 
-            <p className='col-span-3 text-left mb-4'>
-                To access your account, use the following activation code from another mobile device or computer.
-                You can also provide it to the system owner to restore your access.
-            </p>
-
-            <p className='text-left'>
-                Activation code
-            </p>
-            <p className='col-span-2 text-left'>
-                {activationCode}
-            </p>
+            <p className='text-left'>{t('labels.activationCode')}</p>
+            <p className='col-span-2 text-left'>{activationCode}</p>
 
             <div className='flex min-w-full col-span-3 justify-center mt-10'>
                 <button className={CLASSNAME_BUTTON_PRIMARY} onClick={props.back}>{t('buttons.cancel')}</button>
