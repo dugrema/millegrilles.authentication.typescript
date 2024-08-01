@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+
 function Loading() {
     return (
       <div className="App">

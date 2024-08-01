@@ -1,5 +1,4 @@
 import React, {useState, useCallback, useEffect, MouseEventHandler, MouseEvent} from 'react';
-import './App.css';
 
 import Loading from './Loading';
 import Login, { authenticateConnectionWorker } from './Login';
@@ -7,6 +6,9 @@ import InitializeWorkers from './workers/InitializeWorkers';
 import InitializeIdb from './idb/InitializeIdb';
 import useWorkers from './workers/workers';
 import useConnectionStore from "./connectionStore";
+
+import './i18n';
+import './App.css';
 
 const ApplicationList = React.lazy(()=>import('./ApplicationList'));
 const ActivateCode = React.lazy(()=>import('./ActivateCode'));
@@ -98,7 +100,6 @@ function InitialAuthenticationCheck() {
 
         promiseInitialCheck = authenticateConnectionWorker(workers, usernameStore, userSessionActive)
             .then(result=>{
-                console.debug("Worker authentication result ", result);
                 if(result.mustManuallyAuthenticate) {
                     setMustManuallyAuthenticate(true);
                     return;

@@ -1,13 +1,16 @@
 import {Dispatch, useState, useMemo, useCallback, useEffect} from 'react';
 import axios from 'axios';
+import stringify from 'json-stable-stringify';
+import { useTranslation } from 'react-i18next';
+
+import { multiencoding, certificates, messageStruct, digest } from 'millegrilles.cryptography';
+
 import LanguageIcon from './resources/language-svgrepo-com.svg';
 import VersionInfo from './VersionInfo';
 import useConnectionStore from './connectionStore';
 import useAuthenticationStore from './authenticationStore';
 import useWorkers, { AppWorkers } from './workers/workers';
 import { getUser, getUsersList, updateUser, UserCertificateRequest } from './idb/userStoreIdb';
-import { multiencoding, certificates, messageStruct, digest } from 'millegrilles.cryptography';
-import stringify from 'json-stable-stringify';
 import { AuthenticationChallengePublicKeyType, AuthenticationChallengeType } from './workers/connection.worker';
 
 const CLASSNAME_BUTTON_PRIMARY = `
@@ -24,6 +27,7 @@ const CLASSNAME_BUTTON_PRIMARY = `
 
 function Login() {
 
+    let { t } = useTranslation();
     let workers = useWorkers();
     let setUsernameStore = useConnectionStore(state=>state.setUsername);
     let setMustManuallyAuthenticate = useConnectionStore((state) => state.setMustManuallyAuthenticate);
@@ -212,7 +216,7 @@ function Login() {
 
     return (
         <div className={'transition-opacity duration-1000 grid grid-cols-1 justify-items-center ' + mainOpacity}>
-            <h1 className='text-3xl font-bold text-slate-400'>MilleGrilles</h1>
+            <h1 className='text-3xl font-bold text-slate-400'>{t('millegrilles')}</h1>
 
             {pageContent}
 
@@ -314,6 +318,8 @@ type WebauthnChallengeScreenProps = {
 
 function WebauthnChallengeScreen(props: WebauthnChallengeScreenProps) {
 
+    let { t } = useTranslation();
+
     let username = props.username;
     let webauthnChallenge = props.webauthnChallenge;
     let sessionDuration = props.sessionDuration;  // Todo propagate session duration
@@ -351,8 +357,8 @@ function WebauthnChallengeScreen(props: WebauthnChallengeScreenProps) {
             </p>
 
             <div className='flex min-w-full col-span-3 justify-center mt-10'>
-                <button onClick={loginHandler} className={CLASSNAME_BUTTON_PRIMARY}>Next</button>
-                <button className={CLASSNAME_BUTTON_PRIMARY} onClick={props.back}>Cancel</button>
+                <button onClick={loginHandler} className={CLASSNAME_BUTTON_PRIMARY}>{t('buttons.next')}</button>
+                <button className={CLASSNAME_BUTTON_PRIMARY} onClick={props.back}>{t('buttons.cancel')}</button>
             </div>
 
         </div>
@@ -400,30 +406,50 @@ type DurationSelectBox = {
 }
 
 function DurationSelectbox(props: DurationSelectBox) {
+    let { t } = useTranslation();
     return (
         <>
-            <label htmlFor='duration' className='pr-4 mt-2'>Session duration</label>
+            <label htmlFor='duration' className='pr-4 mt-2'>{t('labels.sessionDuration')}</label>
             <select id='duration' onChange={props.setDuration} value={props.duration}
                 className='bg-slate-700 text-slate-300 rounded min-w-full col-span-2 mt-2 hover:bg-slate-500 hover:ring-offset-1 hover:ring-1 focus:bg-indigo-700'>
-                <option value='3600'>1 hour</option>
-                <option value='86400'>1 day</option>
-                <option value='604800'>1 week</option>
-                <option value='2678400'>1 month</option>
+                <option value='3600'>{t('labels.1hour')}</option>
+                <option value='86400'>{t('labels.1day')}</option>
+                <option value='604800'>{t('labels.1week')}</option>
+                <option value='2678400'>{t('labels.1month')}</option>
             </select>
         </>
     )
 }
 
 export function LanguageSelectbox() {
+
+    let { t, i18n } = useTranslation();
+    
+    let [language, setLanguage] = useState(i18n.language);
+
+    let languageChangeHandler = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+        let newLanguage = e.currentTarget.value;
+        console.debug("Change language to ", newLanguage);
+        i18n.changeLanguage(newLanguage);
+        setLanguage(newLanguage);
+    }, [i18n, setLanguage]);
+
+    let shortLanguage = useMemo(()=>{
+        console.debug("Language ", language);
+        return language.split('-')[0];
+    }, [i18n, language]);
+
     return (
         <>
             <label htmlFor='language' className='pr-4 mt-2'>
                 <img src={LanguageIcon} className='w-7 inline invert' alt='Language icon' />
-                Language
+                {t('labels.language')}
             </label>
-            <select id='language' className='bg-slate-700 text-slate-300 rounded min-w-full col-span-2 mt-2 hover:bg-slate-500 hover:ring-offset-1 hover:ring-1 focus:bg-indigo-700'>
-                <option>English</option>
-                <option>Français</option>
+            <select id='language' 
+                value={shortLanguage} onChange={languageChangeHandler}
+                className='bg-slate-700 text-slate-300 rounded min-w-full col-span-2 mt-2 hover:bg-slate-500 hover:ring-offset-1 hover:ring-1 focus:bg-indigo-700'>
+                <option value='en'>{t('language.english')}</option>
+                <option value='fr'>{t('language.french')}</option>
             </select>
         </>
     )
@@ -437,6 +463,7 @@ type RecoveryScreenProps = {
 
 function RecoveryScreen(props: RecoveryScreenProps) {
 
+    let { t } = useTranslation();
     let workers = useWorkers();
     let username = props.username;
 
@@ -483,7 +510,7 @@ function RecoveryScreen(props: RecoveryScreenProps) {
             </p>
 
             <div className='flex min-w-full col-span-3 justify-center mt-10'>
-                <button className={CLASSNAME_BUTTON_PRIMARY} onClick={props.back}>Cancel</button>
+                <button className={CLASSNAME_BUTTON_PRIMARY} onClick={props.back}>{t('buttons.cancel')}</button>
             </div>
 
         </div>
@@ -495,9 +522,10 @@ type ButtonsProps = {
 };
 
 function Buttons(props: ButtonsProps) {
+    let { t } = useTranslation();
     return (
         <>
-            <button className={CLASSNAME_BUTTON_PRIMARY} onClick={props.handleLogin}>Next</button>
+            <button className={CLASSNAME_BUTTON_PRIMARY} onClick={props.handleLogin}>{t('buttons.next')}</button>
         </>
     )
 }

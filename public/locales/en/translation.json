@@ -1,0 +1,27 @@
+{
+    "millegrilles": "MilleGrilles",
+    "name": "Authentication",
+    "title": "MilleGrilles Authentication",
+    "language": {
+        "english": "English",
+        "french": "Français"
+    },
+    "labels": {
+        "username": "User name",
+        "language": "Language",
+        "sessionDuration": "Session duration",
+        "1hour": "1 hour",
+        "1day": "1 day",
+        "1week": "1 week",
+        "1month": "1 month",
+        "applicationName": "Name: ",
+        "applicationVersion": "Version: ",
+        "applicationBuildDate": "Build Date: ",
+        "applicationIdmg": "IDMG: ",
+        "versionInformation": "Version information"
+    },
+    "buttons": {
+        "next": "Next",
+        "cancel": "Cancel"
+    }
+}
