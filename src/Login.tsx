@@ -39,6 +39,7 @@ function Login() {
     let [username, setUsername] = useState(usernamePersist);
     let [sessionDuration, setSessionDuration] = useState(sessionDurationPersist);
 
+    let [recoveryScreen, setRecoveryScreen] = useState(false);
     let [error, setError] = useState('');
     let [mainOpacity, setMainOpacity] = useState('opacity-100');
     let [register, setRegister] = useState(false);
@@ -71,7 +72,10 @@ function Login() {
                     setUsernamePersist(username);
                     setSessionDurationPersist(sessionDuration);
                 })
-                .catch(err=>console.error("Error logging in ", err));
+                .catch(err=>{
+                    console.error("Error logging in ", err);
+                    setRecoveryScreen(true);
+                });
             return;
         }
 
@@ -79,14 +83,15 @@ function Login() {
         performLogin(workers, username, sessionDuration)
             .then(async result=>{
                 // Set the username for the overall application
-                setUsernameStore(username);
                 if(result.register) {
+                    setUsernameStore(username);
                     setRegister(true);
                 } else if(result.authenticated) {
+                    setUsernameStore(username);
                     setMustManuallyAuthenticate(false);
 
                     // Connect the worker
-                    let authResult = await workers?.connection.authenticate();
+                    let authResult = await workers?.connection.authenticate(true);  // Reconnect flag
                     console.debug("Auth result ", authResult);
                     if(!authResult) throw new Error("Authentication error");
                     setConnectionAuthenticated(true);
@@ -109,7 +114,7 @@ function Login() {
                 console.debug("userLoginVerification error", err)
             });
         
-    }, [workers, username, setMainOpacity, setUsernameStore, setRegister, webauthnChallenge, sessionDuration, setUsernamePersist, setSessionDurationPersist]);
+    }, [workers, username, setMainOpacity, setUsernameStore, setRegister, setRecoveryScreen, webauthnChallenge, sessionDuration, setUsernamePersist, setSessionDurationPersist]);
 
     // Pre-emptive loading of user authentication information
     useEffect(()=>{
@@ -117,7 +122,12 @@ function Login() {
             let userInfo = await userLoginVerification(username);
             console.debug("Loaded user info ", userInfo);
             let webauthnChallenge = userInfo?.authentication_challenge;
-            if(webauthnChallenge) {
+            if(userInfo?.methodesDisponibles?.activation && userInfo.challenge_certificat) {
+                console.debug("Deactivate webauthn, log in with certificate");
+                // Deactivate webauthn, we just got permission to login without security
+                setWebauthnReady(false);
+                setWebauthnChallenge(undefined);
+            } else if(webauthnChallenge) {
                 // Check if the user exists locally and verify if certificate should be renewed.
                 let csr: string | null = null;
                 let user = await getUser(username);
@@ -168,6 +178,10 @@ function Login() {
         setWebauthnChallenge(undefined);
     }, [setWebauthnChallenge]);
 
+    let closeRecoveryScreen = useCallback(()=>{
+        setRecoveryScreen(false);
+    }, [setRecoveryScreen]);
+
     let setSessionDurationHandler = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
         let value = Number.parseInt(e.currentTarget.value);
         console.debug("Set session duration : %O : %O", e.currentTarget.value, value);
@@ -179,6 +193,10 @@ function Login() {
     if(register) {
         pageContent = (
             <UserRegistrationScreen username={username} back={closeRegister} sessionDuration={sessionDuration} />
+        );
+    } else if(recoveryScreen) {
+        pageContent = (
+            <RecoveryScreen username={username} back={closeRecoveryScreen} sessionDuration={sessionDuration} />
         );
     } else if(webauthnChallenge && !webauthnReady) {
         pageContent = (
@@ -411,6 +429,67 @@ export function LanguageSelectbox() {
     )
 }
 
+type RecoveryScreenProps = {
+    username: string,
+    back(e: any): void,
+    sessionDuration: number,
+}
+
+function RecoveryScreen(props: RecoveryScreenProps) {
+
+    let workers = useWorkers();
+    let username = props.username;
+
+    let [activationCode, setActivationCode] = useState<string>('');
+
+    useEffect(()=>{
+        getUser(username)
+            .then(async userIdb => {
+                let entry;
+                if(!workers) throw new Error("Workers not intialized");
+                if(!userIdb?.request) {
+                    // Generate new CSR
+                    entry = await createCertificateRequest(workers, username);
+                } else {
+                    entry = userIdb.request;
+                }
+                let code = entry.publicKeyString.slice(entry.publicKeyString.length-8);
+                let formattedCode = code.slice(0,4) + '-' + code.slice(4);
+                setActivationCode(formattedCode);
+                let addRecoveryResult = await workers.connection.addRecoveryCsr(username, entry.pem);
+                console.debug("Add recovery result", addRecoveryResult);
+                if(!addRecoveryResult.ok) throw new Error(`Error adding recovery code: ${addRecoveryResult.err}"`);
+            })
+            .catch(err=>console.error("Error adding recovery code for user %s: %O", username, err));
+    }, [workers, username, setActivationCode])
+
+    return (
+        <div className='MessageBox grid grid-cols-3 min-w-80 max-w-lg border-4 border-slate-500 shadow-2xl rounded-xl p-8 bg-slate-900 text-slate-300 justify-items-end'>
+
+            <p className='col-span-3 text-left mb-4'>
+                The authentication using security devices for your {username} account has failed.
+            </p>
+
+            <p className='col-span-3 text-left mb-4'>
+                To access your account, use the following activation code from another mobile device or computer.
+                You can also provide it to the system owner to restore your access.
+            </p>
+
+            <p className='text-left'>
+                Activation code
+            </p>
+            <p className='col-span-2 text-left'>
+                {activationCode}
+            </p>
+
+            <div className='flex min-w-full col-span-3 justify-center mt-10'>
+                <button className={CLASSNAME_BUTTON_PRIMARY} onClick={props.back}>Cancel</button>
+            </div>
+
+        </div>
+    )
+}
+
 type ButtonsProps = {
     handleLogin: any
 };
@@ -442,27 +521,12 @@ function Message(props: MessageProps) {
     );
 }
 
-type CredentialsType = {
-    id: string,
-    type: string,
-};
-
-// type AuthenticationChallengePublicKeyType = {
-//     allowCredentials?: Array<CredentialsType>,
-//     challenge: string,
-//     rpId?: string,
-//     timeout?: number,
-//     userVerification?: 'string',
-// };
-
-// type AuthenticationChallengeType = {
-//     publicKey?: AuthenticationChallengePublicKeyType,
-// };
-
 type UserLoginVerificationResult = {
     authentication_challenge?: AuthenticationChallengeType,
     challenge_certificat?: string,
-    methodesDisponibles?: {activation?: boolean, certificat?: boolean}
+    methodesDisponibles?: {activation?: boolean, certificat?: boolean},
+    /** Newly activated certificate */
+    certificat?: Array<string>,
 };
 
 async function userLoginVerification(username: string): Promise<UserLoginVerificationResult | null> {
@@ -470,13 +534,16 @@ async function userLoginVerification(username: string): Promise<UserLoginVerific
     // let userInformation = await workers.connection.getUserInformation(username);
     //console.debug("User information : ", userInformation);
     let userIdb = await getUser(username);
+    // Load current public key to get activation flags (logging in without security devices)
     let currentPublicKey = userIdb?.certificate?.publicKeyString;
+    // Load future public key (existing request) to get a newly activated certificate
+    let newPublicKey = userIdb?.request?.publicKeyString;
     const hostname = window.location.hostname
     let data = {
         nomUsager: username, 
         hostname, 
         fingerprintPkCourant: currentPublicKey,
-        // fingerprintPkNouveau, 
+        fingerprintPkNouveau: newPublicKey,
     };
     let response = await axios({method: 'POST', url: '/auth/get_usager', data, timeout: 20_000 });
     if(response.status !== 200) {
@@ -490,6 +557,31 @@ async function userLoginVerification(username: string): Promise<UserLoginVerific
         // User is known
         let content = await JSON.parse(response.data.contenu) as UserLoginVerificationResult;
         console.debug("Response content ", content);
+        if(content.certificat && userIdb?.request) {
+            let certificate = content.certificat;
+            let ca = certificate.pop();
+            // Save the new certificate
+            let certificateRequest = userIdb.request;
+            let certificateEntry = {
+                certificate: content.certificat,
+                publicKey: certificateRequest.publicKey,
+                privateKey: certificateRequest.privateKey,
+                publicKeyString: certificateRequest.publicKeyString,
+            };
+            console.debug("Update local certificate with newly activated version");
+            await updateUser({
+                username, certificate: certificateEntry,
+                request: undefined, // Remove previous request
+                // legacy
+                ca, certificat: certificate, clePriveePem: certificateRequest.privateKeyPem,
+            });
+
+            // Do a new request to check that the back-end will accept activation with this certificate
+            data.fingerprintPkNouveau = undefined;
+            data.fingerprintPkCourant = certificateRequest.publicKeyString;
+            response = await axios({method: 'POST', url: '/auth/get_usager', data, timeout: 20_000 });
+            content = await JSON.parse(response.data.contenu) as UserLoginVerificationResult;
+        }
         return content;
     }
 }
@@ -629,6 +721,7 @@ async function performLogin(workers: AppWorkers, username: string, sessionDurati
             // We got a challenge to authenticate with the certificate.
             await workers.connection.prepareMessageFactory(userDbInfo.certificate.privateKey, userDbInfo.certificate.certificate);
             let authenticationResponse = await certificateAuthentication(workers, loginInfo.challenge_certificat, sessionDuration);
+            console.debug("Authentication response ", authenticationResponse);
             return {authenticated: authenticationResponse.auth, userId: authenticationResponse.userId};
         } else {
             // Determine if we can authenticate with a security device (webauth).

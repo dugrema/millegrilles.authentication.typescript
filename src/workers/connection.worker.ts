@@ -120,6 +120,11 @@ export class AuthenticationConnectionWorker extends ConnectionWorker {
         if(!this.connection) throw new Error("Connection is not initialized");
         return await this.connection.sendCommand(command, 'CoreMaitreDesComptes', 'signerCompteUsager');
     }
+
+    async addRecoveryCsr(username: string, csr: string) {
+        if(!this.connection) throw new Error("Connection is not initialized");
+        return await this.connection.emitWithAck('authentication_addrecoverycsr', {nomUsager: username, csr});
+    }
 }
 
 var worker = new AuthenticationConnectionWorker();
