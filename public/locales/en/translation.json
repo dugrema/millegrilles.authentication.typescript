@@ -19,16 +19,32 @@
         "applicationBuildDate": "Build Date: ",
         "applicationIdmg": "IDMG: ",
         "versionInformation": "Version information",
-        "activationCode": "Activation code"
+        "activationCode": "Activation code",
+        "changeLanguage": "Change language",
+        "logout": "Logout"
     },
     "buttons": {
         "next": "Next",
-        "cancel": "Cancel"
+        "cancel": "Cancel",
+        "register": "Register"
     },
     "screens": {
         "recovery": {
             "instructions1": "The authentication using security devices for your {{username}} account has failed.",
             "instructions2": "To access your account, use the following activation code from another mobile device or computer. You can also provide it to the system owner to restore your access."
+        },
+        "registration": {
+            "instructions1": "The user account {{username}} is available. Click on the Register button to claim it."
+        },
+        "applicationList": {
+            "hi": "Hi",
+            "title": "MilleGrilles Applications",
+            "adminApp": "Administrative application",
+            "activateACode": "Activate a code",
+            "activateACodeDescription": "Activate another device on this account using an activation code (e.g. abcd-1234) or QR code.",
+            "addSecurityDevice": "Add security device",
+            "addSecurityDeviceDescription": "Add a new security device to access your account. This can be a USB security token, Apple/Android device, etc. ",
+            "logoutDescription": "Close session and clear secrets."
         }
     }
 }

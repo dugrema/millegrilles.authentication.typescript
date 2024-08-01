@@ -304,6 +304,7 @@ type UserRegistrationScreenProps = {
 
 function UserRegistrationScreen(props: UserRegistrationScreenProps) {
 
+    let { t } = useTranslation();
     let workers = useWorkers();
     let setMustManuallyAuthenticate = useConnectionStore((state) => state.setMustManuallyAuthenticate);
     let setConnectionAuthenticated = useConnectionStore((state) => state.setConnectionAuthenticated);
@@ -341,11 +342,11 @@ function UserRegistrationScreen(props: UserRegistrationScreenProps) {
         <form onSubmit={handleRegistration}>
             <div className='MessageBox grid grid-cols-3 min-w-80 max-w-lg border-4 border-slate-500 shadow-2xl rounded-xl p-8 bg-slate-900 text-slate-300 justify-items-end'>
 
-                <p className='col-span-3 text-left'>The user account {username} is available. Click on the Register button to claim it.</p>
+                <p className='col-span-3 text-left min-w-full'>{t('screens.registration.instructions1', {username})}</p>
 
                 <div className='flex min-w-full col-span-3 justify-center mt-10'>
-                    <input type='submit' className={CLASSNAME_BUTTON_PRIMARY} value='Register'/>
-                    <button className={CLASSNAME_BUTTON_PRIMARY} onClick={props.back}>Cancel</button>
+                    <input type='submit' className={CLASSNAME_BUTTON_PRIMARY} value={t('buttons.register')}/>
+                    <button className={CLASSNAME_BUTTON_PRIMARY} onClick={props.back}>{t('buttons.cancel')}</button>
                 </div>
 
             </div>
@@ -480,7 +481,6 @@ export function LanguageSelectbox() {
     }, [i18n, setLanguage]);
 
     let shortLanguage = useMemo(()=>{
-        console.debug("Language ", language);
         return language.split('-')[0];
     }, [i18n, language]);
 
@@ -538,8 +538,8 @@ function RecoveryScreen(props: RecoveryScreenProps) {
     return (
         <div className='MessageBox grid grid-cols-3 min-w-80 max-w-lg border-4 border-slate-500 shadow-2xl rounded-xl p-8 bg-slate-900 text-slate-300 justify-items-end'>
 
-            <p className='col-span-3 text-left mb-4'>{t('screens.recovery.instructions1', {username})}</p>
-            <p className='col-span-3 text-left mb-4'>{t('screens.recovery.instructions2')}</p>
+            <p className='col-span-3 text-left mb-4 min-w-full'>{t('screens.recovery.instructions1', {username})}</p>
+            <p className='col-span-3 text-left mb-4 min-w-full'>{t('screens.recovery.instructions2')}</p>
 
             <p className='text-left'>{t('labels.activationCode')}</p>
             <p className='col-span-2 text-left'>{activationCode}</p>

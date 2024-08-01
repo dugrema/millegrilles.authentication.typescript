@@ -1,5 +1,6 @@
 {
     "millegrilles": "MilleGrilles",
+    "name": "Authentification",
     "title": "MilleGrilles authentification",
     "labels": {
         "username": "Nom d'usager",
@@ -14,16 +15,32 @@
         "applicationBuildDate": "Date : ",
         "applicationIdmg": "IDMG : ",
         "versionInformation": "Information sur la version",
-        "activationCode": "Code d'activation"
+        "activationCode": "Code d'activation",
+        "changeLanguage": "Changer le langage",
+        "logout": "**Logout"
     },
     "buttons": {
         "next": "Suivant",
-        "cancel": "Annuler"
+        "cancel": "Annuler",
+        "register": "Créer le compte"
     },
     "screens": {
         "recovery": {
             "instructions1": "L'authentification de votre compte {{username}} a échoué.",
             "instructions2": "Pour accéder à votre compte, utilisez le code d'activation ci-bas à partir d'un autre appareil. Vous pouvez aussi acheminer ce code au propriétaire du système pour qu'il vous redonne accès."
+        },
+        "registration": {
+            "instructions1": "Le compte {{username}} est disponible."
+        },
+        "applicationList": {
+            "hi": "Bonjour",
+            "title": "MilleGrilles applications",
+            "adminApp": "**Administrative application",
+            "activateACode": "**Activate a code",
+            "activateACodeDescription": "**Activate another device on this account using an activation code (e.g. abcd-1234) or QR code.",
+            "addSecurityDevice": "**Add security device",
+            "addSecurityDeviceDescription": "**Add a new security device to access your account. This can be a USB security token, Apple/Android device, etc. ",
+            "logoutDescription": "**Close session and clear secrets."
         }
     }
 }
