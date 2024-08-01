@@ -59,6 +59,12 @@ type CurrentUserDetailType = {
     authentication_challenge: AuthenticationChallengeType,
 }
 
+export type ActivationCodeResponse = MessageResponse & {
+    code?: number | string,
+    csr?: string,
+    nomUsager?: string,
+};
+
 export class AuthenticationConnectionWorker extends ConnectionWorker {
 
     async authenticate(reconnect?: boolean) {
@@ -125,9 +131,14 @@ export class AuthenticationConnectionWorker extends ConnectionWorker {
         return await this.connection.sendCommand(command, 'CoreMaitreDesComptes', 'signerCompteUsager');
     }
 
-    async addRecoveryCsr(username: string, csr: string) {
+    async addRecoveryCsr(username: string, csr: string): Promise<MessageResponse> {
         if(!this.connection) throw new Error("Connection is not initialized");
         return await this.connection.emitWithAck('authentication_addrecoverycsr', {nomUsager: username, csr});
+    }
+
+    async verifyRecoveryCode(code: string): Promise<ActivationCodeResponse> {
+        if(!this.connection) throw new Error("Connection is not initialized");
+        return await this.connection.sendRequest({code}, 'CoreMaitreDesComptes', 'getCsrRecoveryParcode');
     }
 }
 

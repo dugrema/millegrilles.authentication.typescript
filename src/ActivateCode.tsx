@@ -2,8 +2,10 @@ import { useState, useCallback, useMemo, useEffect, FormEventHandler, Dispatch }
 import { FileInput } from 'flowbite-react';
 import useConnectionStore from './connectionStore';
 import useWorkers, { AppWorkers } from './workers/workers';
-import { DelegationChallengeType } from './workers/connection.worker';
+import { ActivationCodeResponse, DelegationChallengeType } from './workers/connection.worker';
 import { certificates, ed25519, forgeCsr, messageStruct } from 'millegrilles.cryptography';
+import { MessageResponse } from './workers/connectionV3';
+import { prepareAuthentication, PrepareAuthenticationResult, signAuthenticationRequest } from './Login';
 
 type ActivateCodeProps = {
     back: any,
@@ -31,12 +33,6 @@ function ActivateCode(props: ActivateCodeProps) {
 
     let buttonAnotherHandler = useCallback(()=>setActivationOk(false), [setActivationOk]);
 
-    let formSubmitHandler = useCallback((e: React.FormEvent<HTMLInputElement>)=>{
-        e.preventDefault();
-        e.stopPropagation();
-        setActivationOk(true);
-    }, [setActivationOk]) as FormEventHandler;
-
     if(uploadKey) return <UploadKey {...props} />;
 
     return (
@@ -44,15 +40,13 @@ function ActivateCode(props: ActivateCodeProps) {
             <p className='text-3xl font-bold text-slate-400 pb-10'>Activate a code</p>
             <p>This is for your {username} account.</p>
 
-            <form onSubmit={formSubmitHandler}>
-                <div className='MessageBox grid grid-cols-3 min-w-80 max-w-lg border-4 border-slate-500 shadow-2xl rounded-xl p-8 bg-slate-900 text-slate-300 justify-items-start'>
-                    {activationOk?
-                        <MessageBoxActivationOk {...props} buttonAnotherHandler={buttonAnotherHandler} />
-                        :
-                        <MessageBoxForm {...props} />
-                    }
-                </div>
-            </form>
+            <div className='MessageBox grid grid-cols-3 min-w-80 max-w-lg border-4 border-slate-500 shadow-2xl rounded-xl p-8 bg-slate-900 text-slate-300 justify-items-start'>
+                {activationOk?
+                    <MessageBoxActivationOk {...props} buttonAnotherHandler={buttonAnotherHandler} />
+                    :
+                    <MessageBoxForm {...props} setActivationOk={setActivationOk} />
+                }
+            </div>
 
             <div className='pt-10'>
                 <p>Use the following button if you have received a key in a .json file to upload.</p>
@@ -219,20 +213,116 @@ function InstallCertificate(props: ActivateCodeProps) {
 
 type MessageBoxFormProps = {
     back: any,
-    // buttonNextHandler: any,
+    setActivationOk: Dispatch<boolean>,
 };
 
 function MessageBoxForm(props: MessageBoxFormProps) {
+
+    let workers = useWorkers();
+    let username = useConnectionStore(state=>state.username);
+
+    let setActivationOk = props.setActivationOk;
+
+    let [code, setCode] = useState('');
+    let [codeRequest, setCodeRequest] = useState<{challenge: String, preparedChallenge: PrepareAuthenticationResult}>()
+
+    useEffect(()=>{
+        // Remove any existing request
+        setCodeRequest(undefined);
+
+        if(!workers || !code) return;
+        if(code.replace('-', '').length !== 8) return;  // The activation code is 8 characters with the dash (-).
+
+        console.debug("Verify code ", code);
+        let t = setTimeout(()=>{
+            if(!workers) throw new Error('Workers is not initialized');
+
+            workers.connection.verifyRecoveryCode(code)
+                .then(async result=>{
+                    console.debug("Activation code verification", result);
+                    if(result.csr) {
+                        if(!workers) throw new Error('Workers is not initialized');
+                        let csr = result.csr;
+
+                        // Confirm the username in the CSR (field common name - CN).
+                        let usernameCsr = forgeCsr.verifyUserCsr(csr);
+                        if(username !== usernameCsr) {
+                            throw new Error("CSR is for another user");
+                        }
+
+                        // Prepare webauthn signature
+                        const hostname = window.location.hostname
+                        let reponseChallenge = await workers.connection.generateWebauthChallenge({
+                            hostname,
+                            webauthnAuthentication: true
+                        })
+                        console.debug("Challenge webauthn : ", reponseChallenge)
+                        const authenticationChallenge = reponseChallenge.authentication_challenge
+                        if(!authenticationChallenge) throw new Error('Webauthn challenge was not provided');
+                        //setOriginalChallenge(authenticationChallenge.publicKey.challenge)
+                        let preparedChallenge = await prepareAuthentication(username, authenticationChallenge, csr, true);
+                        console.debug("Challenge webauthn prepare : ", preparedChallenge)
+                        setCodeRequest({preparedChallenge, challenge: authenticationChallenge.publicKey.challenge});
+                    }
+                })
+                .catch(err=>console.error("Error verifying activation code: ", err));
+        }, 400);
+        return () => clearTimeout(t);
+    }, [workers, code, setCodeRequest])
+
+    let activateHandler = useCallback(()=>{
+        if(!codeRequest) throw new Error("Webauthn request not ready");
+        if(!username) throw new Error('Username not provided');
+
+        const {demandeCertificat, publicKey} = codeRequest.preparedChallenge
+        const origin = window.location.hostname
+        
+        signAuthenticationRequest(username, demandeCertificat, publicKey)
+            .then(async signatureWebauthn => {
+                if(!workers) throw new Error("Workers not initialized");
+                if(!codeRequest) throw new Error("Webauthn request not ready");
+                console.debug("Resultat signature webauthn : %O", signatureWebauthn)
+
+                const command = {
+                    demandeCertificat: signatureWebauthn.demandeCertificat,
+                    clientAssertionResponse: signatureWebauthn.webauthn,
+                    origin,
+                    hostname: origin,
+                    challenge: codeRequest.challenge,
+                }
+
+                console.debug("Commande demande signature : %O", command)
+                const reponse = await workers.connection.signUserAccount(command)
+                console.debug("Reponse signature certificat : %O", reponse)
+
+                if(reponse.err) {
+                    // setResultatActivation('echec')
+                    // erreurCb(reponse.err, "Erreur lors de l'activation du code")
+                } else {
+                    setActivationOk(true);
+                }
+            })
+            .catch(err=>{
+                console.error("Error activating code ", err);
+                // setResultatActivation('echec')
+                // erreurCb(err)
+            })
+    }, [workers, codeRequest, setActivationOk])
+
+    let codeChangeHandler = useCallback((e: React.FormEvent<HTMLInputElement>) => setCode(e.currentTarget.value), [setCode]);
+
     return (
         <>
             <label htmlFor='username' className='justify-self-end pr-4'>Code</label>
             <input 
                 id='username' type='text' placeholder="abcd-1234" autoComplete="off" required pattern='^[0-9a-f]{4}-?[0-9a-f]{4}$'
+                value={code} onChange={codeChangeHandler}
                 className='w-28 col-span-2 bg-slate-700 text-slate-300 hover:bg-slate-500 hover:ring-offset-1 hover:ring-1 focus:bg-indigo-700 invalid:text-red-50 invalid:border-red-500' 
                 />
 
             <div className='flex min-w-full col-span-3 mt-10 justify-center'>
-                <input type='submit' className={CLASSNAME_BUTTON+'bg-indigo-700 text-slate-300 '} value='Next'/>
+                <button disabled={!codeRequest} onClick={activateHandler}
+                    className={CLASSNAME_BUTTON+'bg-indigo-700 text-slate-300 '}>Next</button>
                 <button onClick={props.back} className={CLASSNAME_BUTTON+'bg-slate-700 text-slate-300 '}>Cancel</button>
             </div>
         </>

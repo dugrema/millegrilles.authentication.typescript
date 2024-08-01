@@ -5,8 +5,8 @@
     },
     "requests": [
       {"domain": "CoreTopologie", "action": "listeApplicationsDeployees"},
-      {"action": "getCsrRecoveryParcode"},
-      {"action": "chargerUsager", "exchange": "1.public"}
+      {"action": "chargerUsager", "exchange": "1.public"},
+      {"action": "getCsrRecoveryParcode"}
     ],
     "commands": [
       {"action": "inscrireUsager"},
