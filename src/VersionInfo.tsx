@@ -2,6 +2,8 @@ import { Popover } from 'flowbite-react';
 import useConnectionStore from "./connectionStore";
 import { useTranslation } from 'react-i18next';
 
+import buildManifest from './manifest.build.json';
+
 function VersionInfo() {
     let { t } = useTranslation();
 
@@ -21,8 +23,8 @@ function PopoverVersion() {
     let { t } = useTranslation();
 
     const idmg = useConnectionStore(state=>state.idmg);
-    const version = '2024.6.1';
-    const buildDate = '2024-07-12 13:48:00';
+    const version = buildManifest.version;
+    const buildDate = buildManifest.date;
 
     let content = (
         <div className='w-m-80 text-sm text-gray-400 border-gray-600 bg-gray-800'>
