@@ -169,6 +169,50 @@ function Login() {
         return () => clearTimeout(timeout);
     }, [workers, username, setWebauthnReady, setWebauthnChallenge])
 
+    // Timer to renew the webauthn challenge regularly to avoid stale requests if the user is
+    // away from the screen.
+    useEffect(()=>{
+        if(!workers || !username || !webauthnChallenge) return;
+
+        let timeout = setTimeout(async () => {
+            let userInfo = await userLoginVerification(username);
+            console.debug("Loaded user info ", userInfo);
+            let webauthnChallenge = userInfo?.authentication_challenge;
+            if(webauthnChallenge) {
+                // Check if the user exists locally and verify if certificate should be renewed.
+                let csr: string | null = null;
+                let user = await getUser(username);
+                if(workers) {
+                    if(!user?.request) {
+                        if(user?.certificate) {
+                            let wrapper = certificates.wrapperFromPems(user.certificate.certificate);
+                            wrapper.populateExtensions();
+                            let entry = await prepareRenewalIfDue(workers, wrapper);
+                            if(entry) {
+                                console.debug("New CSR generated for renewal");
+                                csr = entry.pem;
+                            }
+                        } else {
+                            // There is no certificate. Generate a CSR
+                            console.debug("Generate CSR for entry without certificate");
+                            let entry = await createCertificateRequest(workers, username);
+                            csr = entry.pem;
+                        }
+                    } else if(user?.request) {
+                        // Use the CSR for the signature
+                        console.debug("Use existing CSR");
+                        csr = user?.request.pem;
+                    }
+                }
+
+                let preparedChallenge = await prepareAuthentication(username, webauthnChallenge, csr, false);
+                setWebauthnChallenge(preparedChallenge);
+            }            
+        }, 57_000);
+
+        return () => clearTimeout(timeout);
+    }, [workers, username, webauthnChallenge, setWebauthnChallenge])
+
     let usernameOnChangeHandler = useCallback((e: React.FormEvent<HTMLInputElement>) => {
         setError('');
         setUsername(e.currentTarget.value);
