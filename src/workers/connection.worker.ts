@@ -89,7 +89,9 @@ export class AuthenticationConnectionWorker extends ConnectionWorker {
     async generateWebauthChallenge(command: Object): Promise<WebauthChallengeResponse> {
         if(!this.connection) throw new Error("Connection is not initialized");
         let response = this.connection.sendCommand(
-            command, 'CoreMaitreDesComptes', 'genererChallenge', {eventName: 'authentication_challenge_webauthn'}) as WebauthChallengeResponse;
+            command, 'CoreMaitreDesComptes', 'genererChallenge', 
+            {eventName: 'authentication_challenge_webauthn', role: 'protected_webapi'}
+        ) as WebauthChallengeResponse;
         return response;
     }
 
@@ -113,7 +115,9 @@ export class AuthenticationConnectionWorker extends ConnectionWorker {
 
     async getCurrentUserDetail(username: string, hostname: string): Promise<CurrentUserDetailType> {
         if(!this.connection) throw new Error("Connection is not initialized");
-        return await this.connection.sendRequest({nomUsager: username, hostUrl: hostname}, 'CoreMaitreDesComptes', 'chargerUsager') as CurrentUserDetailType;
+        return await this.connection.sendRequest(
+            {nomUsager: username, hostUrl: hostname}, 'CoreMaitreDesComptes', 'chargerUsager'
+        ) as CurrentUserDetailType;
     }
 
     async signUserAccount(command: Object): Promise<{certificat?: Array<string>} & MessageResponse> {

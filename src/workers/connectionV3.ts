@@ -15,17 +15,15 @@ export type ConnectionCallbackParameters = {
     idmg?: string,
 };
 
-export type EmitWithAckProps = {
+export type EmitWithAckProps = VerifyResponseOpts & {
     timeout?: number,
     overrideConnected?: boolean,
-    noverif?: boolean,
 }
 
-export type SendProps = {
+export type SendProps = VerifyResponseOpts & {
     eventName?: string,
     timeout?: number,
     overrideConnected?: boolean,
-    noverif?: boolean,
     partition?: string,
     attachments?: Object
 }
@@ -34,10 +32,15 @@ export type EmitProps = {
     overrideConnected?: boolean,
 }
 
-export type RoutedMessageProps = {
+export type VerifyResponseOpts = {
+    noverif?: boolean,
+    domain?: string,
+    role?: string,
+};
+
+export type RoutedMessageProps = VerifyResponseOpts & {
     partition?: string,
     nowait?: boolean,
-    noverif?: boolean,
 }
 
 export type MessageResponse = {
@@ -47,7 +50,6 @@ export type MessageResponse = {
     __original?: messageStruct.MilleGrillesMessage,
     __certificate?: certificates.CertificateWrapper,
 };
-
 
 export default class ConnectionSocketio {
     url: string;
@@ -302,7 +304,7 @@ export default class ConnectionSocketio {
         return true
     }
 
-    async verifyResponse(response: messageStruct.MilleGrillesMessage, opts?: any): Promise<MessageResponse | messageStruct.MilleGrillesMessage> {
+    async verifyResponse(response: messageStruct.MilleGrillesMessage, opts?: VerifyResponseOpts): Promise<MessageResponse | messageStruct.MilleGrillesMessage> {
         opts = opts || {}
     
         if(opts.noverif) {
@@ -312,6 +314,17 @@ export default class ConnectionSocketio {
     
         if(response.sig && response.certificat) {
             const certificateWrapper = await this.certificateStore?.verifyMessage(response);
+            console.debug("Response certifcate ", certificateWrapper);
+
+            if(opts.role) {
+                let roles = certificateWrapper?.extensions?.roles;
+                console.debug("Verify roles %O against requested role of %s", roles, opts.role);
+                if(!roles || !roles.includes(opts.role)) throw new Error(`Invalid response role: ${roles} - role mismatch or missing`);
+            } else if(opts.domain) {
+                let domains = certificateWrapper?.extensions?.domains;
+                if(!domains || !domains.includes(opts.domain)) throw new Error(`Invalid response domain: ${domains} - domain mismatch or missing`);
+            }
+
             // console.debug("Resultat validation : %O", resultat)
             // Parse le contenu, conserver original
             let content = response as any;
@@ -341,7 +354,10 @@ export default class ConnectionSocketio {
         if(!request) throw new Error("Error generating request: null");
         if(props?.attachments) request.attachements = props.attachments;
         let eventName = props?.eventName || 'route_message';
-        return await this.emitWithAck(eventName, request, props);
+
+        // Ensure the domain is added to emit props for verification. It is overriddeen when already present in props.
+        let emitWithAckProps = props?{domain, ...props}:{domain};
+        return await this.emitWithAck(eventName, request, emitWithAckProps);
     }
 
     async sendCommand(message: Object, domain: string, action: string, props?: SendProps): Promise<MessageResponse> {
@@ -351,7 +367,10 @@ export default class ConnectionSocketio {
         if(!command) throw new Error("Error generating command: null");
         if(props?.attachments) command.attachements = props.attachments;
         let eventName = props?.eventName || 'route_message';
-        return await this.emitWithAck(eventName, command, props);
+
+        // Ensure the domain is added to emit props for verification. It is overriddeen when already present in props.
+        let emitWithAckProps = props?{domain, ...props}:{domain};
+        return await this.emitWithAck(eventName, command, emitWithAckProps);
     }
 
     async authenticate(apiMapping?: Object, reconnect?: boolean) {
@@ -367,7 +386,7 @@ export default class ConnectionSocketio {
 
         let authenticationResponse = await this.sendCommand(
             data, 'authentication', 'authenticate', 
-            {attachments: { apiMapping }, eventName: 'authentication_authenticate'}
+            {attachments: { apiMapping }, eventName: 'authentication_authenticate', role: 'protected_webapi'}
         );
         return authenticationResponse.ok === true;
     }
