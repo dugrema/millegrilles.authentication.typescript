@@ -102,7 +102,7 @@ export default class ConnectionSocketio {
             this.params.reconnectionDelay = this.opts.reconnectionDelay;
         }
 
-        console.info("ConnexionSocketio Server : %s, Params %O", this.serverUrl, this.params);
+        // console.info("ConnexionSocketio Server : %s, Params %O", this.serverUrl, this.params);
         this.socket = io(this.serverUrl, this.params);
 
         this.bindSocketioEventHandlers()
@@ -146,7 +146,6 @@ export default class ConnectionSocketio {
     async onConnectHandler() {
         // Pour la premiere connexion, infoPromise est le resultat d'une requete getEtatAuth.
         const info = await this.emitWithAck('getEtatAuth', {}, {noverif: true, overrideConnected: true});
-        console.debug("onConnectHandler info ", info);
         
         if(this.callback) {
             let params: ConnectionCallbackParameters = {connected: true, authenticated: info.auth};
@@ -314,18 +313,15 @@ export default class ConnectionSocketio {
     
         if(response.sig && response.certificat) {
             const certificateWrapper = await this.certificateStore?.verifyMessage(response);
-            console.debug("Response certifcate ", certificateWrapper);
 
             if(opts.role) {
                 let roles = certificateWrapper?.extensions?.roles;
-                console.debug("Verify roles %O against requested role of %s", roles, opts.role);
                 if(!roles || !roles.includes(opts.role)) throw new Error(`Invalid response role: ${roles} - role mismatch or missing`);
             } else if(opts.domain) {
                 let domains = certificateWrapper?.extensions?.domains;
                 if(!domains || !domains.includes(opts.domain)) throw new Error(`Invalid response domain: ${domains} - domain mismatch or missing`);
             }
 
-            // console.debug("Resultat validation : %O", resultat)
             // Parse le contenu, conserver original
             let content = response as any;
             if(response.kind === 6) {
@@ -409,7 +405,6 @@ export class ConnectionWorker {
     }
     
     async ping(): Promise<boolean> {
-        console.debug("Ping");
         if(!this.connection) return false;
         return true;
     }
@@ -419,11 +414,6 @@ export class ConnectionWorker {
         let signingKey = await ed25519.messageSigningKeyFromBytes(privateKey, certificate);
         return this.connection.prepareMessageFactory(signingKey);
     }
-
-    // async getUserInformation(username: string, hostname: string) {
-    //     if(!this.connection) throw new Error("Connection is not initialized");
-    //     return await this.connection.emitWithAck('getInfoUsager', {nomUsager: username, hostname});
-    // }
 
     async signAuthentication(data: {certificate_challenge: string, activation?: boolean, dureeSession?: number}): Promise<string> {
         // Sign an auth command.

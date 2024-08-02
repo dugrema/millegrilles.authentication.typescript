@@ -58,8 +58,6 @@ function ContentRouter(props: AuthAndContentProps): JSX.Element {
     setPage('');
   }, [setPage]);
 
-  // console.debug("ContentRouter mustManuallyAuthenticate %O, connectionAuthenticated %O", mustManuallyAuthenticate, connectionAuthenticated);
-
   // Override pages depending on authentication state
   if(mustManuallyAuthenticate) return <Login />;
   if(!connectionAuthenticated) return <Loading />;

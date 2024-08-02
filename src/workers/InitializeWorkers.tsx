@@ -29,14 +29,12 @@ function InitializeWorkers() {
 
     let connectionCallback = useMemo(() => {
         return proxy((params: ConnectionCallbackParameters) => {
-            console.debug("Connection params received : ", params);
             setConnectionReady(params.connected);
             if (params.username && params.userId && params.authenticated) {
                 setUsername(params.username);
                 setUserSessionActive(params.authenticated);
             }
             if(params.authenticated !== undefined && !params.authenticated) {
-                console.debug("setMustManuallyAuthenticate to true");
                 setMustManuallyAuthenticate(true);
             }
         });
@@ -47,7 +45,6 @@ function InitializeWorkers() {
     let workerLoadingPromise = useMemo(() => {
         // Avoid loop, only load workers once.
         if (!workersRetry.retry || workersReady || !connectionCallback) return;
-        console.debug("Retry : %O", workersRetry);
         incrementWorkersRetry();
 
         // Stop loading the page when too many retries.
@@ -62,11 +59,9 @@ function InitializeWorkers() {
 
         return fetch('/auth/verifier_usager')
             .then(async (verifUser: Response) => {
-                console.debug("Verif user ", verifUser);
                 let userStatus = verifUser.status;
                 let username = verifUser.headers.get('x-user-name');
-                let userId = verifUser.headers.get('x-user-id');
-                console.debug("User session status : %O, username: %s, userId: %s", userStatus, username, userId);
+                // let userId = verifUser.headers.get('x-user-id');
                 setUserSessionActive(userStatus === 200);
                 if(username) setUsername(username);
 
@@ -116,9 +111,6 @@ function MaintainConnection() {
   
         // Start the connection.
         workers.connection.connect()
-        .then(() => {
-            console.debug("Connected");
-        })
         .catch((err) => {
             console.error("Connection error", err);
         });

@@ -39,7 +39,6 @@ function ApplicationList(props: ApplicationListProps) {
     let {logout, setPage} = props;
 
     let logoutClickHandler = useCallback((e: any)=>{
-        console.debug("Log out");
         logout(e);
     }, [logout]);
 
@@ -134,14 +133,12 @@ function InstalledApplications() {
     let { t } = useTranslation();
 
     let workers = useWorkers();
-    let [apps, setApps] = useState<Array<InstalledApplicationType>>([]);
+    let [apps, setApps] = useState<Array<InstalledApplicationType>>();
 
     useEffect(()=>{
         if(!workers) return;
-        console.debug("Load application list");
         workers.connection.getApplicationList()
             .then(result=>{
-                console.debug("Result ", result);
                 if(result.ok) {
                     // @ts-ignore
                     let apps = result.resultats as Array<InstalledApplicationType>;
@@ -159,10 +156,9 @@ function InstalledApplications() {
                 }
             })
             .catch(err=>console.error("Error loading application list", err));
-    }, [workers, setApps])
+    }, [workers, setApps]);
 
-    let list = apps.map((app, idx)=>{
-        console.debug("App ", app);
+    let list = apps?.map((app, idx)=>{
         let adminApp = app.securite === '3.protege';
         let icon = adminApp?SetupIcon:ForwardIcon;
         return (
@@ -196,11 +192,9 @@ function VerifyCertificateRenewal() {
         let hostname = window.location.hostname;
         workers.connection.getCurrentUserDetail(username, hostname)
             .then((result)=>{
-                console.debug("User detail ", result);
                 let delegations_version = result.compte?.delegations_version;
                 let delegations_date = result.compte?.delegations_date;
                 if(delegations_version && delegations_date) {
-                    console.debug("Set remote versions %O, date %O", delegations_version, delegations_date)
                     setCertificateRemoteVersions({version: delegations_version, date: delegations_date});
                 }
             })
@@ -239,7 +233,6 @@ function VerifyCertificateRenewal() {
                 if(!notBeforeDate) throw new Error('The certificate has no NotBefore date. This is invalid.');
                 notBeforeDate = notBeforeDate / 1000;  // Convert to seconds
 
-                console.debug("Compare idb %O (notBefore epoch %s) to remote %O", userIdb, notBeforeDate, certificateRemoteVersions);
                 if(certificateRemoteVersions.date > notBeforeDate) {
                     console.info("Updated certificate roles on the server");
                     let certificate = await workers.connection.getMessageFactoryCertificate();
@@ -253,7 +246,7 @@ function VerifyCertificateRenewal() {
                 }
             })
             .catch(err=>console.error("Error loading user ", err));
-    }, [workers, certificateRemoteVersions, username])
+    }, [workers, certificateRemoteVersions, username, setCertificateRenewable])
 
     return <span></span>;
 }
@@ -285,7 +278,6 @@ export function RenewCertificate(props?: RenewCertificateProps) {
         setDisabled(true);
         signAuthenticationRequest(username, challenge.demandeCertificat, challenge.publicKey)
             .then(async signedRequest=>{
-                console.debug("Signed request ", signedRequest);
                 if(!challenge) {
                     let error = new Error('challenge missing');
                     if(onError) return onError(error);
@@ -299,7 +291,6 @@ export function RenewCertificate(props?: RenewCertificateProps) {
                     clientAssertionResponse: signedRequest.webauthn,
                 };
                 let response = await workers?.connection.signUserAccount(command);
-                console.debug("Sign account response ", response);
                 if(response?.ok && response?.certificat) {
                     // Success. Save the new certificate and start using it.
                     // Get the newly generated certificate chain. The last one is the CA, remove it from the chain.
@@ -347,14 +338,13 @@ export function RenewCertificate(props?: RenewCertificateProps) {
                 else console.error("Error renewing certificate", err)
             })
             .finally(()=>setDisabled(false));
-    }, [username, challenge, setCertificateRemoteVersions, setCertificateRenewable, setDisabled, onSuccess, onError]);
+    }, [workers, username, challenge, setCertificateRemoteVersions, setCertificateRenewable, setDisabled, onSuccess, onError]);
 
     // Pre-emptive loading of user authentication information
     useEffect(()=>{
         let hostname = window.location.hostname;
         workers?.connection.getCurrentUserDetail(username, hostname)
             .then(async userInfo => {
-                console.debug("Loaded user info ", userInfo);
                 let webauthnChallenge = userInfo?.authentication_challenge;
                 if(webauthnChallenge) {
                     // Check if the user exists locally and verify if certificate should be renewed.
@@ -366,13 +356,11 @@ export function RenewCertificate(props?: RenewCertificateProps) {
                             csr = entry.pem;
                         } else if(user?.request) {
                             // Use the CSR for the signature
-                            console.debug("Use existing CSR");
                             csr = user?.request.pem;
                         }
                     }
         
                     let preparedChallenge = await prepareAuthentication(username, webauthnChallenge, csr, false);
-                    console.debug("Challenge ready : ", preparedChallenge);
                     setChallenge(preparedChallenge);
                 }
             })

@@ -1,4 +1,4 @@
-import { FormEventHandler, useState, useEffect, useCallback, Dispatch } from 'react';
+import { useState, useEffect, useCallback, Dispatch } from 'react';
 import useUserStore from './connectionStore';
 import useWorkers, { AppWorkers } from './workers/workers';
 import { multiencoding } from 'millegrilles.cryptography';
@@ -74,9 +74,6 @@ function AddDeviceContent(props: AddDeviceContentType) {
     }, [setDeactivateOtherKeys]);
 
     let signChallenge = useCallback(()=>{
-        console.debug("Ajout methode pour nomUsager %s, fingerprintPkCourant %O, challenge %O", 
-            username, challenge);
-
         if(!workers || !challenge) return;
 
         setDisabled(true);
@@ -102,7 +99,6 @@ function AddDeviceContent(props: AddDeviceContentType) {
         if(!workers) return;
         getNewDeviceChallenge(workers)
             .then(result => {
-                console.debug("Webauthn registration challenge ", result);
                 setChallenge(result);
             })
             .catch(err=>console.error("Error generating webauth challenge", err));
@@ -168,15 +164,11 @@ function AddDeviceConfirmation(props: AddDeviceContentType) {
 }
 
 async function getNewDeviceChallenge(workers: AppWorkers): Promise<RegistrationChallengeType> {
-    console.debug("Charger challenge ajouter webauthn");
-    
     const hostname = window.location.hostname;
       
     const challengeWebauthn = await workers.connection.generateWebauthChallenge({
         hostname, webauthnRegistration: true
     });
-
-    console.debug("Challenge : %O", challengeWebauthn);
 
     let challenge = challengeWebauthn.registration_challenge;
     if(!challenge) throw new Error("No challenge received");
@@ -190,7 +182,6 @@ async function addMethod(workers: AppWorkers, username: string, publicKey: strin
     //      navigator.credentials.create({publicKey}) sous repondreRegistrationChallenge
     if(challenge.publicKey) challenge = challenge.publicKey
     const reponse = await respondRegistrationChallenge(username, challenge);
-    console.debug("Reponse ajout webauthn : %O", reponse)
 
     const hostname = window.location.hostname
 
@@ -204,10 +195,7 @@ async function addMethod(workers: AppWorkers, username: string, publicKey: strin
         params.reset_cles = true
     }
 
-    console.debug("reponseChallenge : %O", params)
-
     const result = await workers.connection.respondChallengeRegistrationWebauthn(params);
-    console.debug("Resultat ajout : %O", result)
     if(result.ok !== true) {
         const error = new Error("Error, adding of security device refused (server)")
         // @ts-ignore
@@ -217,10 +205,8 @@ async function addMethod(workers: AppWorkers, username: string, publicKey: strin
 }
 
 async function respondRegistrationChallenge(username: string, challengeWebauthn: any) {
-    console.debug('repondreRegistrationChallenge nomUsager: %s, attestation: %O', username, challengeWebauthn);
     // Parse options, remplacer base64 par buffer
     const challenge = multiencoding.decodeBase64Url(challengeWebauthn.challenge);
-    const attestation = challengeWebauthn.attestation;
     const userId = multiencoding.decodeBase64Url(challengeWebauthn.user.id);
   
     const publicKey = {
@@ -235,9 +221,7 @@ async function respondRegistrationChallenge(username: string, challengeWebauthn:
     };
   
     // Cle publique
-    console.debug("Registration options avec buffers : %O", publicKey);
     const newCredential = await navigator.credentials.create({publicKey}) as any;
-    console.debug("New credential : %O", newCredential);
   
     // Transmettre reponse
     const credentialResponse = newCredential.response;

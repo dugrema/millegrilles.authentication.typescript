@@ -17,13 +17,10 @@ export default function InitializeIdb() {
 
     if(promise) throw promise;  // Throw to prevent screen from rendering. Caught in <React.Suspense> (index.tsx).
 
-    console.debug('InitializeIdb done');
     return <span></span>;
 }
 
 async function init() {
-    console.debug("Init idb");
-    
     // Initialize/upgrade the database
     await openDB(true);
 

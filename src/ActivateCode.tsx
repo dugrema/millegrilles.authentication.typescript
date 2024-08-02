@@ -2,9 +2,8 @@ import { useState, useCallback, useMemo, useEffect, FormEventHandler, Dispatch }
 import { FileInput } from 'flowbite-react';
 import useConnectionStore from './connectionStore';
 import useWorkers, { AppWorkers } from './workers/workers';
-import { ActivationCodeResponse, DelegationChallengeType } from './workers/connection.worker';
+import { DelegationChallengeType } from './workers/connection.worker';
 import { certificates, ed25519, forgeCsr, messageStruct } from 'millegrilles.cryptography';
-import { MessageResponse } from './workers/connectionV3';
 import { prepareAuthentication, PrepareAuthenticationResult, signAuthenticationRequest } from './Login';
 import { useTranslation } from 'react-i18next';
 import { RenewCertificate } from './ApplicationList';
@@ -95,8 +94,7 @@ function UploadKey(props: ActivateCodeProps) {
     let checkKeyHandler = useCallback((e: React.FormEvent<HTMLInputElement>)=>{
         if(!workers || !challenge || !uploadedKey) return;
         activateDelegation(workers, challenge, uploadedKey, password)
-            .then(result=>{
-                console.debug("Key activation result ", result);
+            .then(()=>{
                 setInstallCertificate(true);
             })
             .catch(err=>{
@@ -162,6 +160,8 @@ function UploadKeyForm(props: UploadKeyFormProps) {
         return 'hidden';
     }, [invalidKey])
 
+    let ignoreHandler = useCallback(()=>{}, []);  // Prevents react warning
+
     useEffect(()=>{
         if(!workers) return;
         let hostname = window.location.hostname;
@@ -184,10 +184,10 @@ function UploadKeyForm(props: UploadKeyFormProps) {
 
     return (
         <>
-            <input id='foilautofill' name='foilautofill' type='text' className='hidden' value='DO NOT SAVE' />
-            <input name='notautofilledpassword-1' type='password' className='hidden' value='Protecting the password' />
-            <input name='notautofilledpassword-2' type='password' className='hidden' value='Protecting the password' />
-            <input name='notautofilledpassword-3' type='password' className='hidden' value='Protecting the password' />
+            <input id='foilautofill' name='foilautofill' type='text' className='hidden' value='DO NOT SAVE' onChange={ignoreHandler}/>
+            <input name='notautofilledpassword-1' type='password' className='hidden' value='Protecting the password' onChange={ignoreHandler} />
+            <input name='notautofilledpassword-2' type='password' className='hidden' value='Protecting the password' onChange={ignoreHandler}/>
+            <input name='notautofilledpassword-3' type='password' className='hidden' value='Protecting the password' onChange={ignoreHandler}/>
             <label htmlFor='real' className='min-w-full'>Password</label>
             <input 
                 id='real' type='password' placeholder="The password if provided." autoComplete="new-password"
@@ -257,13 +257,11 @@ function MessageBoxForm(props: MessageBoxFormProps) {
         if(!workers || !code) return;
         if(code.replace('-', '').length !== 8) return;  // The activation code is 8 characters with the dash (-).
 
-        console.debug("Verify code ", code);
         let t = setTimeout(()=>{
             if(!workers) throw new Error('Workers is not initialized');
 
             workers.connection.verifyRecoveryCode(code)
                 .then(async result=>{
-                    console.debug("Activation code verification", result);
                     if(result.csr) {
                         if(!workers) throw new Error('Workers is not initialized');
                         let csr = result.csr;
@@ -280,12 +278,9 @@ function MessageBoxForm(props: MessageBoxFormProps) {
                             hostname,
                             webauthnAuthentication: true
                         })
-                        console.debug("Challenge webauthn : ", reponseChallenge)
                         const authenticationChallenge = reponseChallenge.authentication_challenge
                         if(!authenticationChallenge) throw new Error('Webauthn challenge was not provided');
-                        //setOriginalChallenge(authenticationChallenge.publicKey.challenge)
                         let preparedChallenge = await prepareAuthentication(username, authenticationChallenge, csr, true);
-                        console.debug("Challenge webauthn prepare : ", preparedChallenge)
                         setCodeRequest({preparedChallenge, challenge: authenticationChallenge.publicKey.challenge});
                     } else {
                         // Unknown code
@@ -296,7 +291,7 @@ function MessageBoxForm(props: MessageBoxFormProps) {
                 .finally(()=>setDisabled(false));
         }, 400);
         return () => clearTimeout(t);
-    }, [workers, code, setCodeRequest, setInvalidCode, setDisabled])
+    }, [workers, username, code, setCodeRequest, setInvalidCode, setDisabled])
 
     let activateHandler = useCallback((e: React.FormEvent)=>{
         e.preventDefault();
@@ -312,7 +307,6 @@ function MessageBoxForm(props: MessageBoxFormProps) {
             .then(async signatureWebauthn => {
                 if(!workers) throw new Error("Workers not initialized");
                 if(!codeRequest) throw new Error("Webauthn request not ready");
-                console.debug("Resultat signature webauthn : %O", signatureWebauthn)
 
                 const command = {
                     demandeCertificat: signatureWebauthn.demandeCertificat,
@@ -322,9 +316,7 @@ function MessageBoxForm(props: MessageBoxFormProps) {
                     challenge: codeRequest.challenge,
                 }
 
-                console.debug("Commande demande signature : %O", command)
                 const reponse = await workers.connection.signUserAccount(command)
-                console.debug("Reponse signature certificat : %O", reponse)
 
                 if(reponse.err) {
                     // setResultatActivation('echec')
@@ -339,7 +331,7 @@ function MessageBoxForm(props: MessageBoxFormProps) {
                 // erreurCb(err)
             })
             .finally(()=>setDisabled(false));
-    }, [workers, codeRequest, setActivationOk])
+    }, [workers, username, codeRequest, setActivationOk])
 
     let codeChangeHandler = useCallback((e: React.FormEvent<HTMLInputElement>) => setCode(e.currentTarget.value), [setCode]);
 
@@ -414,7 +406,6 @@ async function activateDelegation(workers: AppWorkers, challenge: DelegationChal
     }
 
     let result = await workers.connection.addAdministratorRole(command);
-    console.debug("Result ", result);
     if(result.delegation_globale !== 'proprietaire')  {
         console.error("Error delegation ", result);
         throw new Error("Error adding administrator role: " + result.err);

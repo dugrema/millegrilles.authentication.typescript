@@ -32,10 +32,6 @@ class ErrorBoundary extends Component {
     render() {
         // @ts-ignore
         if(this.state.hasError) {
-            // @ts-ignore
-            let errorCode = this.state.errorCode;
-            console.debug("Error code ", errorCode);
-
             return (
                 <div className="App">
                     <header className="App-header text-slate-300 flex-1 content-center loading">
