@@ -138,7 +138,11 @@ function Login() {
             let userInfo = await userLoginVerification(username);
             let webauthnChallenge = userInfo?.authentication_challenge;
             console.debug("User login verif info : ", userInfo);
-            if(userInfo?.methodesDisponibles?.activation && userInfo.challenge_certificat) {
+            if(!userInfo) {
+                // Unknown user
+                setWebauthnReady(false);
+                setWebauthnChallenge(undefined);
+            } else if(userInfo.methodesDisponibles?.activation && userInfo.challenge_certificat) {
                 // Deactivate webauthn, we just got permission to login without security
                 setWebauthnReady(false);
                 setWebauthnChallenge(undefined);
