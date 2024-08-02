@@ -96,7 +96,7 @@ export class AuthenticationConnectionWorker extends ConnectionWorker {
         if(!this.connection) throw new Error("Connection is not initialized");
         let response = this.connection.sendCommand(
             command, 'CoreMaitreDesComptes', 'genererChallenge', 
-            {eventName: 'authentication_challenge_webauthn', role: 'protected_webapi'}
+            {eventName: 'authentication_challenge_webauthn', role: 'private_webapi'}
         ) as WebauthChallengeResponse;
         return response;
     }

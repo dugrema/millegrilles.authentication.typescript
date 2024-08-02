@@ -1,1 +1,16 @@
-{}
+{
+    "pubkey": "b0f1885cf526c750dc6db18eae85d8214a5ef6d94d4103785b0b811c618437f9",
+    "estampille": 1722622131,
+    "kind": 2,
+    "contenu": "{\"commands\":[{\"action\":\"inscrireUsager\"},{\"action\":\"ajouterCsrRecovery\"},{\"action\":\"genererChallenge\"},{\"action\":\"ajouterCle\"},{\"action\":\"signerCompteUsager\"},{\"action\":\"ajouterDelegationSignee\"}],\"defaults\":{\"domain\":\"CoreMaitreDesComptes\",\"exchange\":\"2.prive\"},\"requests\":[{\"action\":\"listeApplicationsDeployees\",\"domain\":\"CoreTopologie\"},{\"action\":\"chargerUsager\",\"exchange\":\"1.public\"},{\"action\":\"getCsrRecoveryParcode\"}],\"subscriptions\":[{\"exchanges\":[\"2.prive\"],\"routingKeys\":[\"evenement.CoreMaitreDesComptes.{fingerprintPk}.activationFingerprintPk\"],\"subscribe\":\"ecouterEvenementsActivationFingerprint\",\"unsubscribe\":\"retirerEvenementsActivationFingerprint\"},{\"exchanges\":[\"2.prive\"],\"routingKeys\":[\"evenement.CoreMaitreDesComptes.{USER_ID}.majCompteUsager\"],\"subscribe\":\"ecouterEvenementsCompteUsager\",\"unsubscribe\":\"retirerEvenementsCompteUsager\"}]}",
+    "routage": {
+      "action": "configuration",
+      "domaine": "webapi"
+    },
+    "id": "67d3ced5b35881e18b49231eaa835c3de20af557825ab7a1dd9435bf43733555",
+    "sig": "64390b6dfd4453b3459530ddf6a093982ee8bf4e81d708b98abf05ac0bf47c027ac2777a121a2ec9cd7c9b1761cb5f2d6c184082d6ae46ba851f8d380b30f00c",
+    "certificat": [
+      "-----BEGIN CERTIFICATE-----\nMIIBqjCCAVygAwIBAgIUerM/X77+89WoWIQ+wkw5mkB5xTowBQYDK2VwMBYxFDAS\nBgNVBAMTC01pbGxlR3JpbGxlMB4XDTI0MDgwMjE3NDEyOFoXDTI0MDkwMjE3NDE0\nOFowazESMBAGA1UEAwwJU2lnbmF0dXJlMRIwEAYDVQQLDAlzaWduYXR1cmUxQTA/\nBgNVBAoMOHplWW5jUnFFcVo2ZVRFbVVaOHdoSkZ1SEc3OTZlU3ZDVFdFNE00MzJp\nelhycDIyYkF0d0dtN0pmMCowBQYDK2VwAyEAsPGIXPUmx1DcbbGOroXYIUpe9tlN\nQQN4WwuBHGGEN/mjZzBlMCMGBCoDBAEEG3NpZ25hdHVyZSxjYXRhbG9ndWVzLHdl\nYmFwaTAfBgNVHSMEGDAWgBTTiP/MFw4DDwXqQ/J2LLYPRUkkETAdBgNVHQ4EFgQU\nUOipJfCK+blx0kFPnpoo7RGtHGgwBQYDK2VwA0EAH9awzWbbhOAzgSg10E97IfVm\nYUXhNI6rEs5lViUQk1Yb3cybTUpqPn1GRtYfbEp02279zVdXm1rzHEgzJehoBA==\n-----END CERTIFICATE-----"
+    ],
+    "millegrille": "-----BEGIN CERTIFICATE-----\nMIIBQzCB9qADAgECAgoHBykXJoaCCWAAMAUGAytlcDAWMRQwEgYDVQQDEwtNaWxs\nZUdyaWxsZTAeFw0yMjAxMTMyMjQ3NDBaFw00MjAxMTMyMjQ3NDBaMBYxFDASBgNV\nBAMTC01pbGxlR3JpbGxlMCowBQYDK2VwAyEAnnixameVCZAzfx4dO+L63DOk/34I\n/TC4fIA1Rxn19+KjYDBeMA8GA1UdEwEB/wQFMAMBAf8wCwYDVR0PBAQDAgLkMB0G\nA1UdDgQWBBTTiP/MFw4DDwXqQ/J2LLYPRUkkETAfBgNVHSMEGDAWgBTTiP/MFw4D\nDwXqQ/J2LLYPRUkkETAFBgMrZXADQQBSb0vXhw3pw25qrWoMjqROjawe7/kMlu7p\nMJyb/Ppa2C6PraSVPgJGWKl+/5S5tBr58KFNg+0H94CH4d1VCPwI\n-----END CERTIFICATE-----"
+  }

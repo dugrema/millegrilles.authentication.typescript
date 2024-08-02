@@ -343,6 +343,16 @@ export default class ConnectionSocketio {
         }    
     }
 
+    /**
+     * Sign and send a request. 
+     * Verifies that the response signature is valid and comes from the proper back-end component.
+     * 
+     * @param message Message to sign
+     * @param domain Domain of the back-end application to reach on the mq bus.
+     * @param action Action to run in the domain.
+     * @param props 
+     * @returns Response from the back-end component
+     */
     async sendRequest(message: Object, domain: string, action: string, props?: SendProps): Promise<MessageResponse> {
         let routing: {domaine: string, action: string, partition?: string} = {domaine: domain, action};
         if(props?.partition) routing.partition = props.partition;
@@ -356,6 +366,16 @@ export default class ConnectionSocketio {
         return await this.emitWithAck(eventName, request, emitWithAckProps);
     }
 
+    /**
+     * Sign and send a command.
+     * Verifies that the response signature is valid and comes from the proper back-end component.
+     * 
+     * @param message Message to sign
+     * @param domain Domain of the back-end application to reach on the mq bus.
+     * @param action Action to run in the domain.
+     * @param props 
+     * @returns Response from the back-end component
+     */
     async sendCommand(message: Object, domain: string, action: string, props?: SendProps): Promise<MessageResponse> {
         let routing: {domaine: string, action: string, partition?: string} = {domaine: domain, action};
         if(props?.partition) routing.partition = props.partition;
@@ -382,7 +402,7 @@ export default class ConnectionSocketio {
 
         let authenticationResponse = await this.sendCommand(
             data, 'authentication', 'authenticate', 
-            {attachments: { apiMapping }, eventName: 'authentication_authenticate', role: 'protected_webapi'}
+            {attachments: { apiMapping }, eventName: 'authentication_authenticate', role: 'private_webapi'}
         );
         return authenticationResponse.ok === true;
     }
