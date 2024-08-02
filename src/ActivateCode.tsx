@@ -6,6 +6,8 @@ import { ActivationCodeResponse, DelegationChallengeType } from './workers/conne
 import { certificates, ed25519, forgeCsr, messageStruct } from 'millegrilles.cryptography';
 import { MessageResponse } from './workers/connectionV3';
 import { prepareAuthentication, PrepareAuthenticationResult, signAuthenticationRequest } from './Login';
+import { useTranslation } from 'react-i18next';
+import { RenewCertificate } from './ApplicationList';
 
 type ActivateCodeProps = {
     back: any,
@@ -76,6 +78,7 @@ function UploadKey(props: ActivateCodeProps) {
         if(!files) throw new Error("No file received");
         let file = files[0];
 
+        setInvalidKey(false);
         file.arrayBuffer()
             .then(fileContent => {
                 // Parse the json file content
@@ -83,21 +86,29 @@ function UploadKey(props: ActivateCodeProps) {
                 let key = JSON.parse(content);
                 setUploadedKey(key);
             })
-            .catch(err=>console.error("Error parsing key file", err));
-    }, [setUploadedKey]);
+            .catch(err=>{
+                console.error("Error parsing key file", err);
+                setInvalidKey(true);
+            });
+    }, [setUploadedKey, setInvalidKey]);
 
     let checkKeyHandler = useCallback((e: React.FormEvent<HTMLInputElement>)=>{
         if(!workers || !challenge || !uploadedKey) return;
         activateDelegation(workers, challenge, uploadedKey, password)
             .then(result=>{
                 console.debug("Key activation result ", result);
+                setInstallCertificate(true);
             })
-            .catch(err=>console.error("Error activating key ", err));
+            .catch(err=>{
+                console.error("Error activating key ", err);
+                setInvalidKey(true);
+            });
     }, [workers, challenge, password, uploadedKey, setInvalidKey, setInstallCertificate]) as FormEventHandler;
 
     let passwordChangeHandler = useCallback((e: React.FormEvent<HTMLInputElement>)=>{
+        setInvalidKey(false);
         setPassword(e.currentTarget?e.currentTarget.value:'');
-    }, [setPassword]) as FormEventHandler;
+    }, [setPassword, setInvalidKey]) as FormEventHandler;
 
     let showInstall = !invalidKey && installCertificate;
     let ready = (password && uploadedKey && challenge)?true:false;
@@ -189,24 +200,32 @@ function UploadKeyForm(props: UploadKeyFormProps) {
                 onChange={props.uploadKey}
                 helperText='Supported format is .json' />
 
-            <div className='flex min-w-full col-span-3 pt-6 justify-center'>
-                <button onClick={props.checkKeyHandler} className={CLASSNAME_BUTTON+'bg-indigo-700 text-slate-300'} disabled={!ready}>Next</button>
-                <button onClick={props.back} className={CLASSNAME_BUTTON+'bg-slate-700 text-slate-300 '}>Cancel</button>
+            <div className='w-80 h-8'>
+                <p className={classnameMessageInvalid}>The key is invalid.</p>
             </div>
 
-            <div className={classnameMessageInvalid}>
-                The key is invalid.
+            <div className='flex min-w-full col-span-3 pt-4 justify-center'>
+                <button onClick={props.checkKeyHandler} className={CLASSNAME_BUTTON+'bg-indigo-700 text-slate-300'} disabled={!ready}>Next</button>
+                <button onClick={props.back} className={CLASSNAME_BUTTON+'bg-slate-700 text-slate-300 '}>Cancel</button>
             </div>
         </>
     )
 }
 
 function InstallCertificate(props: ActivateCodeProps) {
+
+    let { t } = useTranslation();
+    let back = props.back;
+
+    let onSuccessHandler = useCallback(()=>{
+        back()
+    }, [back]);
+
     return (
         <div>
-            <p className='max-w-64 pb-4'>The key is valid. Click on install to start using your new certificate.</p>
-            <button onClick={props.back} className={CLASSNAME_BUTTON+'bg-indigo-700 text-slate-300 '}>Install</button>
-            <button onClick={props.back} className={CLASSNAME_BUTTON+'bg-slate-700 text-slate-300 '}>Cancel</button>
+            <p className='max-w-64 pb-4'>The key is valid. Click on renew this browser's certificate and follow the instructions.</p>
+            <RenewCertificate buttonOnly={true} onSuccess={onSuccessHandler} className='bg-indigo-700 text-slate-300' />
+            <button onClick={back} className={CLASSNAME_BUTTON+'bg-slate-700 text-slate-300 '}>{t('buttons.cancel')}</button>
         </div>
     )
 }
@@ -218,6 +237,7 @@ type MessageBoxFormProps = {
 
 function MessageBoxForm(props: MessageBoxFormProps) {
 
+    let { t } = useTranslation();
     let workers = useWorkers();
     let username = useConnectionStore(state=>state.username);
 
@@ -225,10 +245,14 @@ function MessageBoxForm(props: MessageBoxFormProps) {
 
     let [code, setCode] = useState('');
     let [codeRequest, setCodeRequest] = useState<{challenge: String, preparedChallenge: PrepareAuthenticationResult}>()
+    let [invalidCode, setInvalidCode] = useState(false);
+    let [disabled, setDisabled] = useState(false);
 
     useEffect(()=>{
         // Remove any existing request
         setCodeRequest(undefined);
+        setInvalidCode(false);
+        setDisabled(true);
 
         if(!workers || !code) return;
         if(code.replace('-', '').length !== 8) return;  // The activation code is 8 characters with the dash (-).
@@ -263,20 +287,27 @@ function MessageBoxForm(props: MessageBoxFormProps) {
                         let preparedChallenge = await prepareAuthentication(username, authenticationChallenge, csr, true);
                         console.debug("Challenge webauthn prepare : ", preparedChallenge)
                         setCodeRequest({preparedChallenge, challenge: authenticationChallenge.publicKey.challenge});
+                    } else {
+                        // Unknown code
+                        setInvalidCode(true);
                     }
                 })
-                .catch(err=>console.error("Error verifying activation code: ", err));
+                .catch(err=>console.error("Error verifying activation code: ", err))
+                .finally(()=>setDisabled(false));
         }, 400);
         return () => clearTimeout(t);
-    }, [workers, code, setCodeRequest])
+    }, [workers, code, setCodeRequest, setInvalidCode, setDisabled])
 
-    let activateHandler = useCallback(()=>{
+    let activateHandler = useCallback((e: React.FormEvent)=>{
+        e.preventDefault();
+        e.stopPropagation();
         if(!codeRequest) throw new Error("Webauthn request not ready");
         if(!username) throw new Error('Username not provided');
 
         const {demandeCertificat, publicKey} = codeRequest.preparedChallenge
         const origin = window.location.hostname
         
+        setDisabled(true);
         signAuthenticationRequest(username, demandeCertificat, publicKey)
             .then(async signatureWebauthn => {
                 if(!workers) throw new Error("Workers not initialized");
@@ -307,25 +338,33 @@ function MessageBoxForm(props: MessageBoxFormProps) {
                 // setResultatActivation('echec')
                 // erreurCb(err)
             })
+            .finally(()=>setDisabled(false));
     }, [workers, codeRequest, setActivationOk])
 
     let codeChangeHandler = useCallback((e: React.FormEvent<HTMLInputElement>) => setCode(e.currentTarget.value), [setCode]);
 
+    let informationMessage;
+    if(invalidCode) informationMessage = <span>The code does not correspond to your account.</span>;
+    else if(codeRequest) informationMessage = <span>The code is valid. Click on {t('buttons.next')} to activate it.</span>;
+    else informationMessage = <span>Enter an activation code.</span>;
+
     return (
-        <>
+        <form onSubmit={activateHandler} className='grid grid-cols-3 col-span-3'>
             <label htmlFor='username' className='justify-self-end pr-4'>Code</label>
             <input 
-                id='username' type='text' placeholder="abcd-1234" autoComplete="off" required pattern='^[0-9a-f]{4}-?[0-9a-f]{4}$'
+                id='username' type='text' placeholder="abcd-1234" autoComplete="off" required pattern='^[0-9a-f]{4}-?[0-9a-f]{4}$' maxLength={9}
                 value={code} onChange={codeChangeHandler}
                 className='w-28 col-span-2 bg-slate-700 text-slate-300 hover:bg-slate-500 hover:ring-offset-1 hover:ring-1 focus:bg-indigo-700 invalid:text-red-50 invalid:border-red-500' 
                 />
 
-            <div className='flex min-w-full col-span-3 mt-10 justify-center'>
-                <button disabled={!codeRequest} onClick={activateHandler}
-                    className={CLASSNAME_BUTTON+'bg-indigo-700 text-slate-300 '}>Next</button>
-                <button onClick={props.back} className={CLASSNAME_BUTTON+'bg-slate-700 text-slate-300 '}>Cancel</button>
+            <div className='flex col-span-3 mt-6 justify-center min-h-14 w-56 items-center'>{informationMessage}</div>
+
+            <div className='flex min-w-full col-span-3 mt-6 justify-center'>
+                <input type='submit' disabled={disabled || !codeRequest}
+                    className={CLASSNAME_BUTTON+'bg-indigo-700 text-slate-300 '} value={t('buttons.next')}/>
+                <button onClick={props.back} className={CLASSNAME_BUTTON+'bg-slate-700 text-slate-300 '}>{t('buttons.cancel')}</button>
             </div>
-        </>
+        </form>
     )
 }
 
@@ -365,7 +404,7 @@ async function activateDelegation(workers: AppWorkers, challenge: DelegationChal
     let userId = userCertificate.extensions?.userId;
     if(!username || !userId) throw new Error("The username/userId is missing from the certificate");
 
-    const preuve = await authentiferCleMillegrille(username, userId, caSigningKey, challenge, {activateDelegation: true});
+    const preuve = await authenticateCleMillegrille(username, userId, caSigningKey, challenge, {activateDelegation: true});
 
     const command = {
         confirmation: preuve,
@@ -391,7 +430,7 @@ type CertificateSigningResponseType = {
     activerDelegation?: boolean,
 };
 
-export async function authentiferCleMillegrille(
+export async function authenticateCleMillegrille(
     username: string, userId: string, caSigningKey: ed25519.MessageSigningKey, challenge: string, props?: {activateDelegation?: boolean}
 ): Promise<messageStruct.MilleGrillesMessage> {
     let reponseCertificat: CertificateSigningResponseType = {

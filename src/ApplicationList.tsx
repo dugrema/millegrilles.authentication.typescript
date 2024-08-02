@@ -13,6 +13,17 @@ import ForwardIcon from './resources/forward-svgrepo-com.svg';
 import SetupIcon from './resources/set-up-svgrepo-com.svg';
 import { useTranslation } from 'react-i18next';
 
+const CLASSNAME_BUTTON = `
+    transition ease-in-out 
+    min-w-28
+    rounded 
+    font-bold
+    active:bg-indigo-700
+    disabled:bg-slate-900 disabled:text-slate-600 disabled:ring-offset-0 disabled:ring-0
+    hover:bg-slate-500 hover:ring-offset-1 hover:ring-1
+    p-1 m-1
+`;
+
 type ApplicationListProps = {
     logout: MouseEventHandler<MouseEvent>,
     setPage: Dispatch<string>,
@@ -62,6 +73,7 @@ function ApplicationList(props: ApplicationListProps) {
                         {t('screens.applicationList.addSecurityDevice')}
                     </button>
                     <blockquote className='text-left h-18 line-clamp-6 sm:line-clamp-3 text-sm'>
+                        <p className='text-lg'>Access to your account from this browser is <span className='font-bold'>not secured properly</span>.</p>
                         {t('screens.applicationList.addSecurityDeviceDescription')}
                     </blockquote>
                 </div>
@@ -246,7 +258,19 @@ function VerifyCertificateRenewal() {
     return <span></span>;
 }
 
-function RenewCertificate() {
+export type RenewCertificateProps = {
+    buttonOnly?: boolean,
+    className?: string,
+    onSuccess?: () => void,
+    onError?: (e: Error) => void,
+};
+
+export function RenewCertificate(props?: RenewCertificateProps) {
+
+    let buttonOnly = props?.buttonOnly;
+    let className = props?.className || '';
+    let onSuccess = props?.onSuccess;
+    let onError = props?.onError;
 
     let workers = useWorkers();
     let username = useUserStore(state=>state.username);
@@ -254,13 +278,19 @@ function RenewCertificate() {
     let setCertificateRenewable = useUserStore(state=>state.setCertificateRenewable);
 
     let [challenge, setChallenge] = useState<PrepareAuthenticationResult>();
+    let [disabled, setDisabled] = useState(false);
 
     let signHandler = useCallback(()=>{
         if(!challenge) throw new Error("Challenge not ready");
+        setDisabled(true);
         signAuthenticationRequest(username, challenge.demandeCertificat, challenge.publicKey)
             .then(async signedRequest=>{
                 console.debug("Signed request ", signedRequest);
-                if(!challenge) throw new Error("challenge missing");
+                if(!challenge) {
+                    let error = new Error('challenge missing');
+                    if(onError) return onError(error);
+                    else throw error;
+                }
 
                 let command = {
                     demandeCertificat: signedRequest.demandeCertificat,
@@ -279,7 +309,9 @@ function RenewCertificate() {
                     let userIdb = await getUser(username);
                     let certificateRequest = userIdb?.request;
                     if(!certificateRequest) {
-                        throw new Error("Error during certificate renewal, no active certificate available");
+                        let error = new Error("Error during certificate renewal, no active certificate available");
+                        if(onError) return onError(error);
+                        else throw error;
                     }
 
                     let certificateEntry = {
@@ -301,10 +333,21 @@ function RenewCertificate() {
                     // Cleanup screen, this removes the <RenewCertificate> element.
                     setCertificateRemoteVersions(undefined);
                     setCertificateRenewable(false);
+
+                    // Success callback
+                    if(onSuccess) onSuccess();
+                } else {
+                    let error = new Error(response?.err || 'Error signing account');
+                    if(onError) onError(error);
+                    else throw error;
                 }
             })
-            .catch(err=>console.error("Error renewing certificate", err));
-    }, [username, challenge, setCertificateRemoteVersions, setCertificateRenewable]);
+            .catch(err=>{
+                if(onError) onError(err);
+                else console.error("Error renewing certificate", err)
+            })
+            .finally(()=>setDisabled(false));
+    }, [username, challenge, setCertificateRemoteVersions, setCertificateRenewable, setDisabled, onSuccess, onError]);
 
     // Pre-emptive loading of user authentication information
     useEffect(()=>{
@@ -333,13 +376,20 @@ function RenewCertificate() {
                     setChallenge(preparedChallenge);
                 }
             })
-            .catch(err=>console.error("Error preparing webauthn signature"));
+            .catch(err=>console.error("Error preparing webauthn signature ", err));
         
     }, [workers, username, setChallenge])
 
+    // Check if we show only a button (in admin screens)
+    if(buttonOnly) return (
+        <button onClick={signHandler} className={CLASSNAME_BUTTON + ' ' + className} disabled={disabled || !challenge}>
+            Renew certificate
+        </button>
+    );
+
     return (
         <div className='border-t border-l border-r border-slate-500 text-start p-2 w-full'>
-            <button onClick={signHandler} className='font-semibold hover:underline' disabled={!challenge}>
+            <button onClick={signHandler} className='font-semibold hover:underline' disabled={disabled || !challenge}>
                 <img src={StarIcon} className="inline w-10 mr-1" alt='key icon' />
                 Renew this browser's certificate
             </button>
