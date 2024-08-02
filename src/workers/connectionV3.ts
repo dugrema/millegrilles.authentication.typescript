@@ -403,6 +403,11 @@ export class ConnectionWorker {
         this.connection = new ConnectionSocketio(serverUrl, ca, callback, opts);
         return true;
     }
+
+    /** Maintenance on the connection. Must be called regularly. */
+    async maintain() {
+        await this.connection?.certificateStore?.cache.maintain();
+    }
     
     async ping(): Promise<boolean> {
         if(!this.connection) return false;
