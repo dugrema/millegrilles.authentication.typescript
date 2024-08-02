@@ -393,7 +393,7 @@ export function RenewCertificate(props?: RenewCertificateProps) {
                 account and requires your security device.
             </blockquote>
         </div>
-    )        
+    );
 }
 
 /** Checks if the user account has the activate: true flag. */
@@ -407,7 +407,6 @@ function CheckActivationStatus() {
 
         userLoginVerification(username)
             .then(result=>{
-                console.debug("Result ", result);
                 if(result?.methodesDisponibles?.activation) {
                     // This browser can connect without webauthn
                     setConnectionInsecure(true);

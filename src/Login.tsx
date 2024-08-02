@@ -50,6 +50,7 @@ function Login() {
     let [register, setRegister] = useState(false);
     let [webauthnChallenge, setWebauthnChallenge] = useState<PrepareAuthenticationResult>();
     let [webauthnReady, setWebauthnReady] = useState(false);
+    let [notAvailable, setNotAvailable] = useState(false);
 
     let handleLogin = useCallback((e: React.FormEvent<HTMLInputElement|HTMLFormElement> | null)=>{
         e?.preventDefault();
@@ -62,6 +63,12 @@ function Login() {
 
         if(!username) {
             setError('Username cannot be empty');
+            return;
+        }
+
+        if(notAvailable) {
+            // There are no authentication methods availble for this browser.
+            setRecoveryScreen(true);
             return;
         }
 
@@ -121,13 +128,16 @@ function Login() {
                 console.error("userLoginVerification error", err)
             });
         
-    }, [workers, username, setMainOpacity, setUsernameStore, setRegister, setRecoveryScreen, webauthnChallenge, sessionDuration, setUsernamePersist, setSessionDurationPersist, setConnectionAuthenticated, setMustManuallyAuthenticate]);
+    }, [workers, username, setMainOpacity, setUsernameStore, setRegister, setRecoveryScreen, webauthnChallenge, sessionDuration, setUsernamePersist, setSessionDurationPersist, setConnectionAuthenticated, setMustManuallyAuthenticate, notAvailable]);
 
     // Pre-emptive loading of user authentication information
     useEffect(()=>{
+        setNotAvailable(false);  // Reset
+
         let timeout = setTimeout(async () => {
             let userInfo = await userLoginVerification(username);
             let webauthnChallenge = userInfo?.authentication_challenge;
+            console.debug("User login verif info : ", userInfo);
             if(userInfo?.methodesDisponibles?.activation && userInfo.challenge_certificat) {
                 // Deactivate webauthn, we just got permission to login without security
                 setWebauthnReady(false);
@@ -163,10 +173,14 @@ function Login() {
             } else {
                 setWebauthnChallenge(undefined);
                 setWebauthnReady(false);
+                if(!userInfo?.challenge_certificat) {
+                    // There are no recognized methods to log in from this browser.
+                    setNotAvailable(true);
+                }
             }
         }, 400);
         return () => clearTimeout(timeout);
-    }, [workers, username, setWebauthnReady, setWebauthnChallenge, setConnectionInsecure])
+    }, [workers, username, setWebauthnReady, setWebauthnChallenge, setConnectionInsecure, setNotAvailable])
 
     // Timer to renew the webauthn challenge regularly to avoid stale requests if the user is
     // away from the screen.

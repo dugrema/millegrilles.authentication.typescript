@@ -27,7 +27,7 @@
     "screens": {
         "recovery": {
             "instructions1": "L'authentification de votre compte {{username}} a échoué.",
-            "instructions2": "Pour accéder à votre compte, utilisez le code d'activation ci-bas à partir d'un autre appareil. Vous pouvez aussi acheminer ce code au propriétaire du système pour qu'il vous redonne accès."
+            "instructions2": "Pour accéder à votre compte, utilisez le code d'activation ci-dessous à partir d'un autre appareil. Vous pouvez aussi acheminer ce code au propriétaire du système pour qu'il vous redonne accès."
         },
         "registration": {
             "instructions1": "Le compte {{username}} est disponible."
