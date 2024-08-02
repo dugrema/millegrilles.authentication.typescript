@@ -64,6 +64,7 @@ function AddDeviceContent(props: AddDeviceContentType) {
     let { t } = useTranslation();
     let workers = useWorkers();
     let username = useUserStore(state=>state.username);
+    let setConnectionInsecure = useUserStore(state=>state.setConnectionInsecure);
 
     let [challenge, setChallenge] = useState<RegistrationChallengeType>();
     let [disabled, setDisabled] = useState(false);
@@ -85,6 +86,7 @@ function AddDeviceContent(props: AddDeviceContentType) {
                 if(!workers) throw new Error("Workers not ready");
                 await addMethod(workers, username, publicKey, challenge, deactivateOtherKeys);
                 setConfirm(true);
+                setConnectionInsecure(false);  // Ensure the flag is removed
             })
             .catch(err=>{
                 console.error("Error adding device", err);
@@ -93,7 +95,7 @@ function AddDeviceContent(props: AddDeviceContentType) {
                 // erreurCb(err, 'Erreur ajouter methode')
             })
             .finally(()=>setDisabled(false));
-    }, [workers, username, challenge, deactivateOtherKeys, setDisabled, setFailed, setConfirm]) as React.MouseEventHandler<HTMLInputElement|HTMLButtonElement>;
+    }, [workers, username, challenge, deactivateOtherKeys, setDisabled, setFailed, setConfirm, setConnectionInsecure]) as React.MouseEventHandler<HTMLInputElement|HTMLButtonElement>;
 
     useEffect(()=>{
         if(!workers) return;

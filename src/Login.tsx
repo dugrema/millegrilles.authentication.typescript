@@ -32,6 +32,7 @@ function Login() {
     let setUsernameStore = useConnectionStore(state=>state.setUsername);
     let setMustManuallyAuthenticate = useConnectionStore((state) => state.setMustManuallyAuthenticate);
     let setConnectionAuthenticated = useConnectionStore((state) => state.setConnectionAuthenticated);
+    let setConnectionInsecure = useConnectionStore((state) => state.setConnectionInsecure);
 
     // Store that persists values in local storage
     let usernamePersist = useAuthenticationStore( state => state.username );
@@ -99,6 +100,9 @@ function Login() {
                     if(!authResult) throw new Error("Authentication error");
                     setConnectionAuthenticated(true);
 
+                    // Todo - start transition to allow application list to preload.
+                    setMainOpacity('opacity-0');  // Makes the login form fade out during the transition
+
                     // Persist information for next time the screen is loaded
                     setUsernamePersist(username);
                     setSessionDurationPersist(sessionDuration);
@@ -112,9 +116,6 @@ function Login() {
                     let preparedChallenge = await prepareAuthentication(username, result.webauthnChallenge, csr, false);
                     setWebauthnChallenge(preparedChallenge);
                 }
-
-                // Todo - start transition to allow application list to preload.
-                setMainOpacity('opacity-0');  // Makes the login form fade out during the transition
             })
             .catch(err=>{
                 console.error("userLoginVerification error", err)
@@ -131,6 +132,7 @@ function Login() {
                 // Deactivate webauthn, we just got permission to login without security
                 setWebauthnReady(false);
                 setWebauthnChallenge(undefined);
+                setConnectionInsecure(true);  // Flag that indicates a connection that doesn't require security devices
             } else if(webauthnChallenge) {
                 // Check if the user exists locally and verify if certificate should be renewed.
                 let csr: string | null = null;
@@ -164,7 +166,7 @@ function Login() {
             }
         }, 400);
         return () => clearTimeout(timeout);
-    }, [workers, username, setWebauthnReady, setWebauthnChallenge])
+    }, [workers, username, setWebauthnReady, setWebauthnChallenge, setConnectionInsecure])
 
     // Timer to renew the webauthn challenge regularly to avoid stale requests if the user is
     // away from the screen.
@@ -581,7 +583,7 @@ type UserLoginVerificationResult = {
     certificat?: Array<string>,
 };
 
-async function userLoginVerification(username: string): Promise<UserLoginVerificationResult | null> {
+export async function userLoginVerification(username: string): Promise<UserLoginVerificationResult | null> {
     // Check if the username exists or is new
     let userIdb = await getUser(username);
     // Load current public key to get activation flags (logging in without security devices)

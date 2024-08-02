@@ -15,6 +15,7 @@ interface ConnectionStoreState {
     mustManuallyAuthenticate: boolean,
     certificateRemoteVersions?: {version: number, date: number},
     certificateRenewable: boolean,
+    connectionInsecure: boolean,
     setFiche: (idmg: string, ca: string, chiffrage: Array<Array<string>>) => void,
     setUserSessionActive: (userSessionActive: boolean) => void,
     setUsername: (newUsername: string) => void,
@@ -27,6 +28,7 @@ interface ConnectionStoreState {
     setMustManuallyAuthenticate: (mustManuallyAuthenticate: boolean) => void,
     setCertificateRemoteVersions: (certificateRemoteVersions?: {version: number, date: number}) => void,
     setCertificateRenewable: (certificateRenewable: boolean) => void,
+    setConnectionInsecure: (connectionInsecure: boolean) => void,
 };
 
 const useConnectionStore = create<ConnectionStoreState>()(
@@ -45,6 +47,7 @@ const useConnectionStore = create<ConnectionStoreState>()(
             mustManuallyAuthenticate: false,
             certificateRemoteVersions: undefined,
             certificateRenewable: false,
+            connectionInsecure: false,
             setFiche: (idmg, ca, chiffrage) => set(() => ({ idmg, ca, chiffrage })),
             setUsername: (username) => set(() => ({ username })),
             setUserSessionActive: (userSessionActive) => set(() => ({ userSessionActive })),
@@ -56,7 +59,8 @@ const useConnectionStore = create<ConnectionStoreState>()(
             setConnectionAuthenticated: (connectionAuthenticated) => set(() => ({ connectionAuthenticated })),
             setMustManuallyAuthenticate: (mustManuallyAuthenticate) => set(() => ({ mustManuallyAuthenticate })),
             setCertificateRemoteVersions: (certificateRemoteVersions) => set(() => ({certificateRemoteVersions})),
-            setCertificateRenewable: (certificateRenewable) => set(() => ({ certificateRenewable }))
+            setCertificateRenewable: (certificateRenewable) => set(() => ({ certificateRenewable })),
+            setConnectionInsecure: (connectionInsecure) => set(() => ({ connectionInsecure })),
         })
     ),
 );

@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, MouseEvent, MouseEventHandler, Dispatch, SyntheticEvent } from 'react';
 import { Popover } from 'flowbite-react';
-import { createCertificateRequest, LanguageSelectbox, prepareAuthentication, PrepareAuthenticationResult, prepareRenewalIfDue, signAuthenticationRequest } from './Login';
+import { createCertificateRequest, LanguageSelectbox, prepareAuthentication, PrepareAuthenticationResult, prepareRenewalIfDue, signAuthenticationRequest, userLoginVerification } from './Login';
 import VersionInfo from './VersionInfo';
 import useUserStore from './connectionStore';
 import useWorkers from './workers/workers';
@@ -35,6 +35,7 @@ function ApplicationList(props: ApplicationListProps) {
 
     let username = useUserStore(state=>state.username);
     let certificateRenewable = useUserStore(state=>state.certificateRenewable);
+    let connectionInsecure = useUserStore(state=>state.connectionInsecure);
 
     let {logout, setPage} = props;
 
@@ -72,7 +73,11 @@ function ApplicationList(props: ApplicationListProps) {
                         {t('screens.applicationList.addSecurityDevice')}
                     </button>
                     <blockquote className='text-left h-18 line-clamp-6 sm:line-clamp-3 text-sm'>
-                        <p className='text-lg'>Access to your account from this browser is <span className='font-bold'>not secured properly</span>.</p>
+                        {connectionInsecure?
+                            <p className='text-lg'>Access to your account from this browser is <span className='font-bold'>not secured properly</span>.</p>
+                            :
+                            <span></span>
+                        }
                         {t('screens.applicationList.addSecurityDeviceDescription')}
                     </blockquote>
                 </div>
@@ -92,6 +97,7 @@ function ApplicationList(props: ApplicationListProps) {
             </div>
             <VersionInfo />
             <VerifyCertificateRenewal />
+            <CheckActivationStatus />
         </div>
     );
 }
@@ -388,4 +394,27 @@ export function RenewCertificate(props?: RenewCertificateProps) {
             </blockquote>
         </div>
     )        
+}
+
+/** Checks if the user account has the activate: true flag. */
+function CheckActivationStatus() {
+    let workers = useWorkers();
+    let username = useUserStore(state=>state.username);
+    let setConnectionInsecure = useUserStore(state=>state.setConnectionInsecure);
+    
+    useEffect(()=>{
+        if(!workers || !username) return;
+
+        userLoginVerification(username)
+            .then(result=>{
+                console.debug("Result ", result);
+                if(result?.methodesDisponibles?.activation) {
+                    // This browser can connect without webauthn
+                    setConnectionInsecure(true);
+                }
+            })
+            .catch(err=>console.error("Error checking user status ", err));
+    }, [workers, username, setConnectionInsecure]);
+
+    return <span></span>;
 }
