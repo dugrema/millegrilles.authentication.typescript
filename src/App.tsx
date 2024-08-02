@@ -16,62 +16,62 @@ const AddSecurityDevice = React.lazy(()=>import('./AddSecurityDevice'));
 
 function App() {
 
-  const workersReady = useConnectionStore(state=>state.workersReady);
-  const workers = useWorkers();
+    const workersReady = useConnectionStore(state=>state.workersReady);
+    const workers = useWorkers();
 
-  let logoutHandler: MouseEventHandler<MouseEvent> = useCallback(()=>{
-    window.location.href = '/auth/deconnecter_usager';
-  }, []);
+    let logoutHandler: MouseEventHandler<MouseEvent> = useCallback(()=>{
+        window.location.href = '/auth/deconnecter_usager';
+    }, []);
 
-  useEffect(()=>{
-    if(!workersReady || !workers) return;
-  }, [workersReady, workers]);
+    useEffect(()=>{
+        if(!workersReady || !workers) return;
+    }, [workersReady, workers]);
 
-  return (
-    <div className="App">
-      <header className="App-header h-screen text-slate-300 flex-1 content-center">
-        <div className='overflow-auto pt-4 pb-4'>
-          <ContentRouter logout={logoutHandler} />
+    return (
+        <div className="App">
+            <header className="App-header h-screen text-slate-300 flex-1 content-center">
+                <div className='overflow-auto pt-4 pb-4'>
+                    <ContentRouter logout={logoutHandler} />
+                </div>
+            </header>
+            <InitializeWorkers />
+            <InitializeIdb />
+            <InitialAuthenticationCheck />
         </div>
-      </header>
-      <InitializeWorkers />
-      <InitializeIdb />
-      <InitialAuthenticationCheck />
-    </div>
-  );
+    );
 }
 
 export default App;
 
 type AuthAndContentProps = {
-  logout: MouseEventHandler<MouseEvent>,
+    logout: MouseEventHandler<MouseEvent>,
 }
 
 function ContentRouter(props: AuthAndContentProps): JSX.Element {
 
-  let mustManuallyAuthenticate = useConnectionStore(state=>state.mustManuallyAuthenticate);
-  let connectionAuthenticated = useConnectionStore(state=>state.connectionAuthenticated);
+    let mustManuallyAuthenticate = useConnectionStore(state=>state.mustManuallyAuthenticate);
+    let connectionAuthenticated = useConnectionStore(state=>state.connectionAuthenticated);
 
-  let [page, setPage] = useState('ApplicationList');
+    let [page, setPage] = useState('ApplicationList');
 
-  let backHandler = useCallback(()=>{
-    setPage('');
-  }, [setPage]);
+    let backHandler = useCallback(()=>{
+        setPage('');
+    }, [setPage]);
 
-  // Override pages depending on authentication state
-  if(mustManuallyAuthenticate) return <Login />;
-  if(!connectionAuthenticated) return <Loading />;
+    // Override pages depending on authentication state
+    if(mustManuallyAuthenticate) return <Login />;
+    if(!connectionAuthenticated) return <Loading />;
 
-  // Routed pages
-  if(page === 'ActivateCode') {
-    return <ActivateCode back={backHandler} />;
-  } else if(page === 'AddSecurityDevice') {
-    return <AddSecurityDevice back={backHandler} />;
-  }
+    // Routed pages
+    if(page === 'ActivateCode') {
+        return <ActivateCode back={backHandler} />;
+    } else if(page === 'AddSecurityDevice') {
+        return <AddSecurityDevice back={backHandler} />;
+    }
 
-  return (
-    <ApplicationList logout={props.logout} setPage={setPage} />
-  );
+    return (
+        <ApplicationList logout={props.logout} setPage={setPage} />
+    );
 }
 
 let promiseInitialCheck: Promise<void> | null = null;
