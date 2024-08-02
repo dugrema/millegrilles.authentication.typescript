@@ -30,7 +30,7 @@ function App() {
   return (
     <div className="App">
       <header className="App-header h-screen text-slate-300 flex-1 content-center">
-        <div className='overflow-scroll'>
+        <div className='overflow-auto pt-4 pb-4'>
           <ContentRouter logout={logoutHandler} />
         </div>
       </header>
