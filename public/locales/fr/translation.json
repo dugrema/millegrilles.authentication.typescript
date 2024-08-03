@@ -17,12 +17,16 @@
         "versionInformation": "Information sur la version",
         "activationCode": "Code d'activation",
         "changeLanguage": "Changer le langage",
-        "logout": "**Logout"
+        "logout": "Quitter",
+        "yourAccount": "**This is for your {{username}} account.",
+        "password": "**Password"
     },
     "buttons": {
         "next": "Suivant",
         "cancel": "Annuler",
-        "register": "Créer le compte"
+        "register": "Créer le compte",
+        "done": "**Done",
+        "addAnother": "**Add another"
     },
     "screens": {
         "recovery": {
@@ -34,13 +38,30 @@
         },
         "applicationList": {
             "hi": "Bonjour",
-            "title": "MilleGrilles applications",
-            "adminApp": "**Administrative application",
-            "activateACode": "**Activate a code",
-            "activateACodeDescription": "**Activate another device on this account using an activation code (e.g. abcd-1234) or QR code.",
-            "addSecurityDevice": "**Add security device",
-            "addSecurityDeviceDescription": "**Add a new security device to access your account. This can be a USB security token, Apple/Android device, etc. ",
-            "logoutDescription": "**Close session and clear secrets."
+            "title": "Applications MilleGrilles",
+            "adminApp": "Application d'administration",
+            "activateACode": "Activer un code",
+            "activateACodeDescription": "Activez un autre appareil sur votre compte en utilisant un code d'activation (par exemple abcd-1234) ou un code QR.",
+            "addSecurityDevice": "Ajouter une clé de sécurité",
+            "addSecurityDeviceDescription": "Ajoutez une nouvelle clé de sécurité pour accéder à vos comptes. Ceci peut être une clé de sécurité USB, un appareil Apple ou Android, etc.",
+            "logoutDescription": "Fermer l'application et effacer les informations secrètes."
+        },
+        "activateCode": {
+            "title": "**Activate a code",
+            "code": "**Code",
+            "enterCode": "**Enter an activation code.",
+            "validCode": "**The code is valid. Click on Next to activate it.",
+            "invalidCode": "**The code does not correspond to your account.",
+            "successfulCode": "**Code activated successfully.",
+            "anotherCode": "**Another Code",
+            "uploadKeyInstructions": "**Use the following button if you have received a key in a .json file to upload.",
+            "uploadKey": "**Upload a key",
+            "uploadKeyButton": "**Upload key",
+            "keyFileUpload": "**Key file upload",
+            "invalidKey": "**The key is invalid.",
+            "validKey": "**The key is valid. Click on renew this browser's certificate and follow the instructions.",
+            "passwordPlaceholder": "**The password if provided.",
+            "formatIsJson": "**Supported format is .json"
         }
     }
 }

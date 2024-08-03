@@ -25,7 +25,9 @@ const CLASSNAME_BUTTON = `
 
 function ActivateCode(props: ActivateCodeProps) {
 
-    const username = useConnectionStore(state=>state.username);
+    let { t } = useTranslation();
+
+    let username = useConnectionStore(state=>state.username);
 
     let [uploadKey, setUploadKey] = useState(false);
     let [activationOk, setActivationOk] = useState(false);
@@ -38,8 +40,8 @@ function ActivateCode(props: ActivateCodeProps) {
 
     return (
         <div className={'grid grid-cols-1 justify-items-center'}>
-            <p className='text-3xl font-bold text-slate-400 pb-10'>Activate a code</p>
-            <p>This is for your {username} account.</p>
+            <p className='text-3xl font-bold text-slate-400 pb-10'>{t('screens.activateCode.title')}</p>
+            <p>{t('labels.yourAccount', {username})}</p>
 
             <div className='MessageBox grid grid-cols-3 min-w-80 max-w-lg border-4 border-slate-500 shadow-2xl rounded-xl p-8 bg-slate-900 text-slate-300 justify-items-start'>
                 {activationOk?
@@ -50,8 +52,8 @@ function ActivateCode(props: ActivateCodeProps) {
             </div>
 
             <div className='pt-10'>
-                <p>Use the following button if you have received a key in a .json file to upload.</p>
-                <button onClick={upladKeyButtonHandler} className={CLASSNAME_BUTTON+'bg-slate-700 text-slate-300 '}>Upload key</button>
+                <p>{t('screens.activateCode.uploadKeyInstructions')}</p>
+                <button onClick={upladKeyButtonHandler} className={CLASSNAME_BUTTON+'bg-slate-700 text-slate-300 '}>{t('screens.activateCode.uploadKeyButton')}</button>
             </div>
 
         </div>
@@ -62,6 +64,7 @@ export default ActivateCode;
 
 function UploadKey(props: ActivateCodeProps) {
 
+    let { t } = useTranslation();
     let workers = useWorkers();
 
     const username = useConnectionStore(state=>state.username);
@@ -113,8 +116,8 @@ function UploadKey(props: ActivateCodeProps) {
 
     return (
         <div className={'grid grid-cols-1 justify-items-center'}>
-            <p className='text-3xl font-bold text-slate-400 pb-10'>Upload a key</p>
-            <p>This is for your {username} account.</p>
+            <p className='text-3xl font-bold text-slate-400 pb-10'>{t('screens.activateCode.uploadKey')}</p>
+            <p>{t('labels.yourAccount', {username})}</p>
 
             <div className='flex flex-col MessageBox min-w-80 border-4 border-slate-500 shadow-2xl rounded-xl p-8 bg-slate-900 text-slate-300 text-start space-y-4'>
                 {showInstall?
@@ -148,6 +151,8 @@ type UploadKeyFormProps = {
 };
 
 function UploadKeyForm(props: UploadKeyFormProps) {
+
+    let { t } = useTranslation();
 
     let workers = useWorkers();
 
@@ -188,25 +193,25 @@ function UploadKeyForm(props: UploadKeyFormProps) {
             <input name='notautofilledpassword-1' type='password' className='hidden' value='Protecting the password' onChange={ignoreHandler} />
             <input name='notautofilledpassword-2' type='password' className='hidden' value='Protecting the password' onChange={ignoreHandler}/>
             <input name='notautofilledpassword-3' type='password' className='hidden' value='Protecting the password' onChange={ignoreHandler}/>
-            <label htmlFor='real' className='min-w-full'>Password</label>
+            <label htmlFor='real' className='min-w-full'>{t('labels.password')}</label>
             <input 
-                id='real' type='password' placeholder="The password if provided." autoComplete="new-password"
+                id='real' type='password' placeholder={t('screens.activateCode.passwordPlaceholder')} autoComplete="new-password"
                 value={props.password} onChange={props.passwordChangeHandler}
                 className='w-80 bg-slate-700 text-slate-300 hover:bg-slate-500 hover:ring-offset-1 hover:ring-1 focus:bg-indigo-700' 
                 />
 
-            <label htmlFor='file-upload'>Key file upload</label>
+            <label htmlFor='file-upload'>{t('screens.activateCode.keyFileUpload')}</label>
             <FileInput id='file-upload' sizing='sm' className='w-full max-w-80 overflow-hidden' required accept='application/json'
                 onChange={props.uploadKey}
-                helperText='Supported format is .json' />
+                helperText={t('screens.activateCode.formatIsJson')} />
 
             <div className='w-80 h-8'>
-                <p className={classnameMessageInvalid}>The key is invalid.</p>
+                <p className={classnameMessageInvalid}>{t('screens.activateCode.invalidKey')}</p>
             </div>
 
             <div className='flex min-w-full col-span-3 pt-4 justify-center'>
-                <button onClick={props.checkKeyHandler} className={CLASSNAME_BUTTON+'bg-indigo-700 text-slate-300'} disabled={!ready}>Next</button>
-                <button onClick={props.back} className={CLASSNAME_BUTTON+'bg-slate-700 text-slate-300 '}>Cancel</button>
+                <button onClick={props.checkKeyHandler} className={CLASSNAME_BUTTON+'bg-indigo-700 text-slate-300'} disabled={!ready}>{t('buttons.next')}</button>
+                <button onClick={props.back} className={CLASSNAME_BUTTON+'bg-slate-700 text-slate-300 '}>{t('buttons.cancel')}</button>
             </div>
         </>
     )
@@ -223,7 +228,7 @@ function InstallCertificate(props: ActivateCodeProps) {
 
     return (
         <div>
-            <p className='max-w-64 pb-4'>The key is valid. Click on renew this browser's certificate and follow the instructions.</p>
+            <p className='max-w-64 pb-4'>{t('screens.activateCode.validKey')}</p>
             <RenewCertificate buttonOnly={true} onSuccess={onSuccessHandler} className='bg-indigo-700 text-slate-300' />
             <button onClick={back} className={CLASSNAME_BUTTON+'bg-slate-700 text-slate-300 '}>{t('buttons.cancel')}</button>
         </div>
@@ -336,13 +341,13 @@ function MessageBoxForm(props: MessageBoxFormProps) {
     let codeChangeHandler = useCallback((e: React.FormEvent<HTMLInputElement>) => setCode(e.currentTarget.value), [setCode]);
 
     let informationMessage;
-    if(invalidCode) informationMessage = <span>The code does not correspond to your account.</span>;
-    else if(codeRequest) informationMessage = <span>The code is valid. Click on {t('buttons.next')} to activate it.</span>;
-    else informationMessage = <span>Enter an activation code.</span>;
+    if(invalidCode) informationMessage = <span>{t('screens.activateCode.invalidCode')}</span>;
+    else if(codeRequest) informationMessage = <span>{t('screens.activateCode.validCode')}</span>;
+    else informationMessage = <span>{t('screens.activateCode.enterCode')}</span>;
 
     return (
         <form onSubmit={activateHandler} className='grid grid-cols-3 col-span-3'>
-            <label htmlFor='username' className='justify-self-end pr-4'>Code</label>
+            <label htmlFor='username' className='justify-self-end pr-4'>{t('screens.activateCode.code')}</label>
             <input 
                 id='username' type='text' placeholder="abcd-1234" autoComplete="off" required pattern='^[0-9a-f]{4}-?[0-9a-f]{4}$' maxLength={9}
                 value={code} onChange={codeChangeHandler}
@@ -366,13 +371,14 @@ type MessageBoxActivationOkProps = {
 };
 
 function MessageBoxActivationOk(props: MessageBoxActivationOkProps) {
+    let { t } = useTranslation();
     return (
         <>
-            <p className='col-span-3 w-full'>Code activated successfully.</p>
+            <p className='col-span-3 w-full'>{t('screens.activateCode.successfulCode')}</p>
 
             <div className='flex min-w-full col-span-3 mt-10 justify-center'>
-                <button onClick={props.back} className={CLASSNAME_BUTTON+'bg-indigo-700 text-slate-300 '}>Done</button>
-                <button onClick={props.buttonAnotherHandler} className={CLASSNAME_BUTTON+'bg-slate-700 text-slate-300 '}>Another code</button>
+                <button onClick={props.back} className={CLASSNAME_BUTTON+'bg-indigo-700 text-slate-300 '}>{t('buttons.done')}</button>
+                <button onClick={props.buttonAnotherHandler} className={CLASSNAME_BUTTON+'bg-slate-700 text-slate-300 '}>{t('screens.activateCode.anotherCode')}</button>
             </div>
         </>
     )

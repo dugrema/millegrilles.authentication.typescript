@@ -21,7 +21,9 @@
         "versionInformation": "Version information",
         "activationCode": "Activation code",
         "changeLanguage": "Change language",
-        "logout": "Logout"
+        "logout": "Logout",
+        "yourAccount": "This is for your {{username}} account.",
+        "password": "Password"
     },
     "buttons": {
         "next": "Next",
@@ -47,6 +49,23 @@
             "addSecurityDevice": "Add security device",
             "addSecurityDeviceDescription": "Add a new security device to access your account. This can be a USB security token, Apple/Android device, etc. ",
             "logoutDescription": "Close session and clear secrets."
+        },
+        "activateCode": {
+            "title": "Activate a code",
+            "code": "Code",
+            "enterCode": "Enter an activation code.",
+            "validCode": "The code is valid. Click on Next to activate it.",
+            "invalidCode": "The code does not correspond to your account.",
+            "successfulCode": "Code activated successfully.",
+            "anotherCode": "Another Code",
+            "uploadKeyInstructions": "Use the following button if you have received a key in a .json file to upload.",
+            "uploadKey": "Upload a key",
+            "uploadKeyButton": "Upload key",
+            "keyFileUpload": "Key file upload",
+            "invalidKey": "The key is invalid.",
+            "validKey": "The key is valid. Click on renew this browser's certificate and follow the instructions.",
+            "passwordPlaceholder": "The password if provided.",
+            "formatIsJson": "Supported format is .json"
         }
     }
 }
