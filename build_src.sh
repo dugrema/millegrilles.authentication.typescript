@@ -15,6 +15,8 @@ build_app() {
   rm -rf $REP_CLIENT/build
   rm -rf $REP_STATIC
 
+  # Override l'api de developpement par l'api signe
+  cp $REP_CLIENT/src/resources/apiMapping.signed.json $REP_CLIENT/src/resources/apiMapping.json
   makeManifest $REP_CLIENT
 
   echo "Installer toutes les dependances"
@@ -42,8 +44,8 @@ build_react() {
   FICHIERS_GZ=`find $REP_STATIC_GLOBAL/$NOM_APP -type f \( -name "*.js" -o -name "*.css" -o -name "*.map" -o -name "*.json" \)`
   for FICHIER in ${FICHIERS_GZ[@]}; do gzip -k $FICHIER; done
 
-  cd $REP_STATIC_GLOBAL
-  tar -zcf ../$BUILD_FILE $NOM_APP
+  cd $REP_STATIC_GLOBAL/$NOM_APP
+  tar -zcf ../../$BUILD_FILE .
 }
 
 makeManifest() {

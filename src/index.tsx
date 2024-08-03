@@ -1,7 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
-import App from './App';
 import Loading from './Loading';
 import * as serviceWorkerRegistration from './serviceWorkerRegistration';
 import reportWebVitals from './reportWebVitals';
@@ -9,6 +8,8 @@ import reportWebVitals from './reportWebVitals';
 // Global imports
 import '@solana/webcrypto-ed25519-polyfill';
 import ErrorBoundary from './ErrorBoundary';
+
+const App = React.lazy(()=>import('./App'));
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
