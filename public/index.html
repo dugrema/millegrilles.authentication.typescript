@@ -67,3 +67,13 @@
     </div>
   </body>
 </html>
+
+<script>
+  if ('serviceWorker' in navigator) {
+      if('%NODE_ENV%' === 'development') {
+        var GLOBAL_DEV_FLAG = true;
+      } else {
+        var GLOBAL_DEV_FLAG = false;
+      }
+  }
+</script>
