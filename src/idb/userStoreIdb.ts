@@ -227,7 +227,9 @@ export async function clearUserCertificate(username: string) {
 
     const updatedEntry = {
         ...entry, 
-        certificate: null,
+        certificate: null, request: null,
+        // Legacy
+        clePriveePem: null, ca: null, certificat: null,
     };
   
     const db = await openDB();

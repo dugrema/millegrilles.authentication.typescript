@@ -12,6 +12,7 @@ import SwitchIcon from './resources/switch-svgrepo-com.svg';
 import ForwardIcon from './resources/forward-svgrepo-com.svg';
 import SetupIcon from './resources/set-up-svgrepo-com.svg';
 import { useTranslation } from 'react-i18next';
+import cleanup from './idb/cleanup';
 
 const CLASSNAME_BUTTON = `
     transition ease-in-out 
@@ -40,8 +41,11 @@ function ApplicationList(props: ApplicationListProps) {
     let {logout, setPage} = props;
 
     let logoutClickHandler = useCallback((e: any)=>{
-        logout(e);
-    }, [logout]);
+        cleanup(username)
+            .finally(()=>{
+                logout(e);
+            });
+    }, [username, logout]);
 
     let sectionChangeHandler = useCallback((e: SyntheticEvent)=>{
         let target = e.target as HTMLInputElement;
