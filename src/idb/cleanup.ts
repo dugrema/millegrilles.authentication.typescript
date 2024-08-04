@@ -1,11 +1,10 @@
-import { AppWorkers } from "../workers/workers"
-import { clearUserCertificate, clearKeys } from './userStoreIdb'
+import { clearUserCertificate, clearKeys } from './userStoreIdb';
 
 /** 
  * Supprime toutes les idb databases autre que celles de maitre des comptes, vide les cles, et autre storage.
  */
-const DATABASES = ['collections', 'documents', 'messagerie']
-const CACHE_STORAGE_NAMES = ['fichiersDechiffresTmp']
+const DATABASES = ['collections', 'documents', 'messagerie'];
+const CACHE_STORAGE_NAMES = ['fichiersDechiffresTmp'];
 
 export default async function cleanup(username: string) {
     if('indexedDB' in window) {

@@ -79,7 +79,7 @@ function ApplicationList(props: ApplicationListProps) {
         if(!notBeforeDate || !deletagions_date || notBeforeDate.getTime() < deletagions_date*1000) {
             setCertificateRenewable(true);
         }
-    }), [workers, username, setCertificateRenewable]);
+    }), [workers, setCertificateRenewable]);
 
     useEffect(()=>{
         if(!workers || !connectionAuthenticated) return;
