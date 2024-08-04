@@ -6,17 +6,6 @@ import { RegistrationChallengeType } from './workers/connection.worker';
 import { getUser } from './idb/userStoreIdb';
 import { useTranslation } from 'react-i18next';
 
-const CLASSNAME_BUTTON = `
-    transition ease-in-out 
-    min-w-28
-    rounded 
-    font-bold
-    active:bg-indigo-700
-    disabled:bg-slate-900 disabled:text-slate-600 disabled:ring-offset-0 disabled:ring-0
-    hover:bg-slate-500 hover:ring-offset-1 hover:ring-1
-    p-1 m-1
-`;
-
 type AddSecurityDeviceProps = {
     back: any,
 };
@@ -127,10 +116,14 @@ function AddDeviceContent(props: AddDeviceContentType) {
 
             <div className='grid col-span-1 pt-4 justify-items-center'>
                 <div>
-                    <button onClick={signChallenge} disabled={disabled} className={CLASSNAME_BUTTON+'bg-indigo-700 text-slate-300 '} >
+                    <button onClick={signChallenge} disabled={disabled} 
+                        className='btn bg-indigo-800 hover:bg-indigo-600 active:bg-indigo-500'>
                         {t('buttons.next')}
                     </button>
-                    <button onClick={props.back} className={CLASSNAME_BUTTON+'bg-slate-700 text-slate-300 '}>{t('buttons.cancel')}</button>
+                    <button onClick={props.back}
+                        className='btn bg-slate-700 hover:bg-slate-600 active:bg-slate-500' >
+                            {t('buttons.cancel')}
+                    </button>
                 </div>
             </div>
         </>
@@ -155,10 +148,14 @@ function AddDeviceConfirmation(props: AddDeviceContentType) {
 
             <div className='grid col-span-1 pt-4 justify-items-center'>
                 <div>
-                    <button onClick={anotherHandler} className={CLASSNAME_BUTTON+'bg-indigo-700 text-slate-300 '} >
+                    <button onClick={anotherHandler}
+                        className='btn bg-indigo-800 hover:bg-indigo-600 active:bg-indigo-500'>
                         {t('buttons.addAnother')}
                     </button>
-                    <button onClick={props.back} className={CLASSNAME_BUTTON+'bg-slate-700 text-slate-300 '}>{t('buttons.done')}</button>
+                    <button onClick={props.back}
+                        className='btn bg-slate-700 hover:bg-slate-600 active:bg-slate-500' >
+                            {t('buttons.done')}
+                    </button>
                 </div>
             </div>
         </>

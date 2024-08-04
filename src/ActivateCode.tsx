@@ -12,17 +12,6 @@ type ActivateCodeProps = {
     back: any,
 };
 
-const CLASSNAME_BUTTON = `
-    transition ease-in-out 
-    min-w-28
-    rounded 
-    font-bold
-    active:bg-indigo-700
-    disabled:bg-slate-900 disabled:text-slate-600 disabled:ring-offset-0 disabled:ring-0
-    hover:bg-slate-500 hover:ring-offset-1 hover:ring-1
-    p-1 m-1
-`;
-
 function ActivateCode(props: ActivateCodeProps) {
 
     let { t } = useTranslation();
@@ -53,7 +42,10 @@ function ActivateCode(props: ActivateCodeProps) {
 
             <div className='pt-10'>
                 <p>{t('screens.activateCode.uploadKeyInstructions')}</p>
-                <button onClick={upladKeyButtonHandler} className={CLASSNAME_BUTTON+'bg-slate-700 text-slate-300 '}>{t('screens.activateCode.uploadKeyButton')}</button>
+                <button onClick={upladKeyButtonHandler} 
+                    className='btn bg-slate-700 hover:bg-slate-600 active:bg-slate-500' >
+                        {t('screens.activateCode.uploadKeyButton')}
+                </button>
             </div>
 
         </div>
@@ -210,8 +202,13 @@ function UploadKeyForm(props: UploadKeyFormProps) {
             </div>
 
             <div className='flex min-w-full col-span-3 pt-4 justify-center'>
-                <button onClick={props.checkKeyHandler} className={CLASSNAME_BUTTON+'bg-indigo-700 text-slate-300'} disabled={!ready}>{t('buttons.next')}</button>
-                <button onClick={props.back} className={CLASSNAME_BUTTON+'bg-slate-700 text-slate-300 '}>{t('buttons.cancel')}</button>
+                <button onClick={props.checkKeyHandler} disabled={!ready}
+                    className='btn bg-indigo-800 hover:bg-indigo-600 active:bg-indigo-500'>
+                        {t('buttons.next')}
+                </button>
+                <button onClick={props.back} className='btn bg-slate-700 hover:bg-slate-600 active:bg-slate-500'>
+                        {t('buttons.cancel')}
+                </button>
             </div>
         </>
     )
@@ -229,8 +226,12 @@ function InstallCertificate(props: ActivateCodeProps) {
     return (
         <div>
             <p className='max-w-64 pb-4'>{t('screens.activateCode.validKey')}</p>
-            <RenewCertificate buttonOnly={true} onSuccess={onSuccessHandler} className='bg-indigo-700 text-slate-300' />
-            <button onClick={back} className={CLASSNAME_BUTTON+'bg-slate-700 text-slate-300 '}>{t('buttons.cancel')}</button>
+            <RenewCertificate buttonOnly={true} onSuccess={onSuccessHandler} 
+                className='bg-indigo-800 hover:bg-indigo-600 active:bg-indigo-500' />
+            <button onClick={back}
+                className='btn bg-slate-700 hover:bg-slate-600 active:bg-slate-500'>
+                    {t('buttons.cancel')}
+            </button>
         </div>
     )
 }
@@ -357,9 +358,12 @@ function MessageBoxForm(props: MessageBoxFormProps) {
             <div className='flex col-span-3 mt-6 justify-center min-h-14 w-56 items-center'>{informationMessage}</div>
 
             <div className='flex min-w-full col-span-3 mt-6 justify-center'>
-                <input type='submit' disabled={disabled || !codeRequest}
-                    className={CLASSNAME_BUTTON+'bg-indigo-700 text-slate-300 '} value={t('buttons.next')}/>
-                <button onClick={props.back} className={CLASSNAME_BUTTON+'bg-slate-700 text-slate-300 '}>{t('buttons.cancel')}</button>
+                <input type='submit' disabled={disabled || !codeRequest} value={t('buttons.next')}
+                    className='btn bg-indigo-800 hover:bg-indigo-600 active:bg-indigo-500' />
+                <button onClick={props.back} 
+                    className='btn bg-slate-700 hover:bg-slate-600 active:bg-slate-500'>
+                        {t('buttons.cancel')}
+                </button>
             </div>
         </form>
     )
@@ -377,8 +381,14 @@ function MessageBoxActivationOk(props: MessageBoxActivationOkProps) {
             <p className='col-span-3 w-full'>{t('screens.activateCode.successfulCode')}</p>
 
             <div className='flex min-w-full col-span-3 mt-10 justify-center'>
-                <button onClick={props.back} className={CLASSNAME_BUTTON+'bg-indigo-700 text-slate-300 '}>{t('buttons.done')}</button>
-                <button onClick={props.buttonAnotherHandler} className={CLASSNAME_BUTTON+'bg-slate-700 text-slate-300 '}>{t('screens.activateCode.anotherCode')}</button>
+                <button onClick={props.back} 
+                    className='btn bg-indigo-800 hover:bg-indigo-600 active:bg-indigo-500'>
+                        {t('buttons.done')}
+                </button>
+                <button onClick={props.buttonAnotherHandler}
+                    className='btn bg-indigo-800 hover:bg-indigo-600 active:bg-indigo-500'>
+                        {t('screens.activateCode.anotherCode')}
+                </button>
             </div>
         </>
     )

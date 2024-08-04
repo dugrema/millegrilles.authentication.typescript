@@ -19,17 +19,6 @@ import { MessageResponse, SubscriptionMessage } from './workers/connectionV3';
 import useConnectionStore from './connectionStore';
 import { messageStruct } from 'millegrilles.cryptography';
 
-const CLASSNAME_BUTTON = `
-    transition ease-in-out 
-    min-w-28
-    rounded 
-    font-bold
-    active:bg-indigo-700
-    disabled:bg-slate-900 disabled:text-slate-600 disabled:ring-offset-0 disabled:ring-0
-    hover:bg-slate-500 hover:ring-offset-1 hover:ring-1
-    p-1 m-1
-`;
-
 type ApplicationListProps = {
     logout: MouseEventHandler<MouseEvent>,
     setPage: Dispatch<string>,
@@ -421,7 +410,7 @@ export function RenewCertificate(props?: RenewCertificateProps) {
 
     // Check if we show only a button (in admin screens)
     if(buttonOnly) return (
-        <button onClick={signHandler} className={CLASSNAME_BUTTON + ' ' + className} disabled={disabled || !challenge}>
+        <button onClick={signHandler} className={'btn ' + className} disabled={disabled || !challenge}>
             Renew certificate
         </button>
     );

@@ -15,18 +15,6 @@ import { getUser, getUsersList, updateUser, UserCertificateRequest } from './idb
 import { AuthenticationChallengePublicKeyType, AuthenticationChallengeType } from './workers/connection.worker';
 import { MessageResponse, SubscriptionMessage } from './workers/connectionV3';
 
-const CLASSNAME_BUTTON_PRIMARY = `
-    transition ease-in-out 
-    min-w-40 
-    rounded 
-    bg-slate-700 text-slate-300 
-    font-bold
-    active:bg-indigo-700
-    disabled:bg-slate-900 disabled:text-slate-600 disabled:ring-offset-0 disabled:ring-0
-    hover:bg-slate-500 hover:ring-offset-1 hover:ring-1
-    p-1 m-1
-`;
-
 function Login() {
 
     let { t } = useTranslation();
@@ -309,6 +297,29 @@ function UserInputScreen(props: UserInputScreenProps) {
     );
 }
 
+type ButtonsProps = {
+    handleLogin: any
+};
+
+function Buttons(props: ButtonsProps) {
+    let { t } = useTranslation();
+    let connectionReady = useConnectionStore((state) => state.connectionReady);
+
+    let notReady = useMemo(()=>{
+        if(connectionReady) return ''
+        else return 'Currently offline';
+    }, [connectionReady])
+
+    return (
+        <>
+            <button onClick={props.handleLogin} disabled={!connectionReady} title={notReady}
+                className='btn bg-indigo-800 hover:bg-indigo-600 active:bg-indigo-500' >
+                    {t('buttons.next')}
+            </button>
+        </>
+    )
+}
+
 type UserRegistrationScreenProps = {
     username: string,
     sessionDuration: number,
@@ -321,6 +332,7 @@ function UserRegistrationScreen(props: UserRegistrationScreenProps) {
     let workers = useWorkers();
     let setMustManuallyAuthenticate = useConnectionStore((state) => state.setMustManuallyAuthenticate);
     let setConnectionAuthenticated = useConnectionStore((state) => state.setConnectionAuthenticated);
+    let connectionReady = useConnectionStore((state) => state.connectionReady);
 
     // Store that persists values in local storage
     let setUsernamePersist = useAuthenticationStore( state => state.setUsername );
@@ -358,8 +370,12 @@ function UserRegistrationScreen(props: UserRegistrationScreenProps) {
                 <p className='col-span-3 text-left min-w-full'>{t('screens.registration.instructions1', {username})}</p>
 
                 <div className='flex min-w-full col-span-3 justify-center mt-10'>
-                    <input type='submit' className={CLASSNAME_BUTTON_PRIMARY} value={t('buttons.register')}/>
-                    <button className={CLASSNAME_BUTTON_PRIMARY} onClick={props.back}>{t('buttons.cancel')}</button>
+                    <input type='submit' value={t('buttons.register')} disabled={!connectionReady} 
+                        className='btn bg-indigo-800 hover:bg-indigo-600 active:bg-indigo-500' />
+                    <button onClick={props.back}
+                        className='btn bg-slate-700 hover:bg-slate-600 active:bg-slate-500'>
+                            {t('buttons.cancel')}
+                    </button>
                 </div>
 
             </div>
@@ -414,8 +430,14 @@ function WebauthnChallengeScreen(props: WebauthnChallengeScreenProps) {
             </p>
 
             <div className='flex min-w-full col-span-3 justify-center mt-10'>
-                <button onClick={loginHandler} className={CLASSNAME_BUTTON_PRIMARY}>{t('buttons.next')}</button>
-                <button className={CLASSNAME_BUTTON_PRIMARY} onClick={props.back}>{t('buttons.cancel')}</button>
+                <button onClick={loginHandler} 
+                    className='btn bg-indigo-800 hover:bg-indigo-600 active:bg-indigo-500'>
+                        {t('buttons.next')}
+                </button>
+                <button onClick={props.back}
+                    className='btn bg-slate-700 hover:bg-slate-600 active:bg-slate-500' >
+                        {t('buttons.cancel')}
+                </button>
             </div>
 
         </div>
@@ -635,23 +657,13 @@ function RecoveryScreen(props: RecoveryScreenProps) {
             <p className='col-span-3 text-left mt-4 mb-4 min-w-full'>{t('screens.recovery.instructions3')}</p>
 
             <div className='flex min-w-full col-span-3 justify-center mt-10'>
-                <button className={CLASSNAME_BUTTON_PRIMARY} onClick={props.back}>{t('buttons.cancel')}</button>
+                <button onClick={props.back}
+                    className='btn bg-indigo-800 hover:bg-indigo-600 active:bg-indigo-500' >
+                        {t('buttons.cancel')}
+                </button>
             </div>
 
         </div>
-    )
-}
-
-type ButtonsProps = {
-    handleLogin: any
-};
-
-function Buttons(props: ButtonsProps) {
-    let { t } = useTranslation();
-    return (
-        <>
-            <button className={CLASSNAME_BUTTON_PRIMARY} onClick={props.handleLogin}>{t('buttons.next')}</button>
-        </>
     )
 }
 
