@@ -2,7 +2,7 @@ import { useMemo, useEffect } from "react";
 import { proxy } from "comlink";
 
 import { ConnectionCallbackParameters } from "./connectionV3";
-import useWorkers, { initWorkers, InitWorkersResult } from "./workers";
+import useWorkers, { AppWorkers, initWorkers, InitWorkersResult } from "./workers";
 import useConnectionStore from "../connectionStore";
 
 /**
@@ -105,6 +105,7 @@ export default InitializeWorkers;
 
 function MaintainConnection() {
     let workers = useWorkers();
+    let workersReady = useConnectionStore((state) => state.workersReady);
     
     useEffect(() => {
         if (!workers) return;
@@ -117,5 +118,23 @@ function MaintainConnection() {
 
     }, [workers]);
 
+    useEffect(()=>{
+        if(!workersReady || !workers) return;
+        // Start regular maintenance
+        let maintenanceInterval = setInterval(()=>{
+            if(workers) maintain(workers);
+        }, 30_000);
+        return () => clearInterval(maintenanceInterval);
+    }, [workersReady, workers]);
+
     return <span></span>
+}
+
+/** Regular maintenance on the connection. */
+async function maintain(workers: AppWorkers) {
+    try {
+        await workers.connection.maintain();
+    } catch(err) {
+        console.error("Error maintaining connection ", err);
+    }
 }

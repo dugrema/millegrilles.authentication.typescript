@@ -4,7 +4,7 @@ import Loading from './Loading';
 import Login, { authenticateConnectionWorker } from './Login';
 import InitializeWorkers from './workers/InitializeWorkers';
 import InitializeIdb from './idb/InitializeIdb';
-import useWorkers, { AppWorkers } from './workers/workers';
+import useWorkers from './workers/workers';
 import useConnectionStore from "./connectionStore";
 
 import './i18n';
@@ -16,19 +16,9 @@ const AddSecurityDevice = React.lazy(()=>import('./AddSecurityDevice'));
 
 function App() {
 
-    const workersReady = useConnectionStore(state=>state.workersReady);
-    const workers = useWorkers();
-
     let logoutHandler: MouseEventHandler<MouseEvent> = useCallback(()=>{
         window.location.href = '/auth/deconnecter_usager';
     }, []);
-
-    useEffect(()=>{
-        if(!workersReady || !workers) return;
-        // Start regular maintenance
-        let maintenanceInterval = setInterval(()=>maintain(workers), 120_000);
-        return () => clearInterval(maintenanceInterval);
-    }, [workersReady, workers]);
 
     return (
         <div className="App">
@@ -123,13 +113,4 @@ function InitialAuthenticationCheck() {
     if(promiseInitialCheck) throw promiseInitialCheck;  // Shows <Loading> page with <React.Suspend> in index.tsx.
 
     return <span></span>;
-}
-
-/** Regular maintenance on the connection. */
-async function maintain(workers: AppWorkers) {
-    try {
-        await workers.connection.maintain();
-    } catch(err) {
-        console.error("Error maintaining connection ", err);
-    }
 }
