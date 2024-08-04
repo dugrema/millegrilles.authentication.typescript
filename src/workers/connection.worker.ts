@@ -1,6 +1,6 @@
 import { expose } from 'comlink';
 import { forgeCsr } from 'millegrilles.cryptography'
-import { ConnectionWorker, MessageResponse } from './connectionV3';
+import { ConnectionWorker, MessageResponse, SubscriptionCallback } from './connectionV3';
 
 import '@solana/webcrypto-ed25519-polyfill';
 import apiMapping from '../resources/apiMapping.json';
@@ -140,6 +140,17 @@ export class AuthenticationConnectionWorker extends ConnectionWorker {
         if(!this.connection) throw new Error("Connection is not initialized");
         return await this.connection.sendRequest({code}, 'CoreMaitreDesComptes', 'getCsrRecoveryParcode');
     }
+
+    async subscribeActivationCode(callback: SubscriptionCallback, publicKey: string): Promise<void> {
+        if(!this.connection) throw new Error("Connection is not initialized");
+        return await this.connection.subscribeActivationCode(callback, publicKey);
+    }
+
+    async unsubscribeActivationCode(callback: SubscriptionCallback, publicKey: string): Promise<void> {
+        if(!this.connection) throw new Error("Connection is not initialized");
+        return await this.connection.unsubscribeActivationCode(callback, publicKey);
+    }
+
 }
 
 var worker = new AuthenticationConnectionWorker();

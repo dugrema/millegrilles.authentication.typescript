@@ -51,6 +51,18 @@ export type MessageResponse = {
     __certificate?: certificates.CertificateWrapper,
 };
 
+export type SubscriptionMessage = {
+    exchange: string,
+    routingKey: string,
+    message: MessageResponse | messageStruct.MilleGrillesMessage,
+}
+
+export interface SubscriptionCallback {
+    (event: SubscriptionMessage): void;
+}
+
+export type SubscriptionParameters = Object;
+
 export default class ConnectionSocketio {
     url: string;
     serverUrl?: string;
@@ -337,7 +349,7 @@ export default class ConnectionSocketio {
             }
             return content;
         } else {
-            //console.warn("Reponse recue sans signature/cert : ", reponse)
+            console.warn("Reponse recue sans signature/cert : ", response)
             // return reponse
             throw new Error("Invalid response: the signature is missing");
         }    
@@ -406,6 +418,116 @@ export default class ConnectionSocketio {
         );
         return authenticationResponse.ok === true;
     }
+
+    async subscribeActivationCode(callback: SubscriptionCallback, publicKey: string): Promise<void> {
+        if(!this.socket) throw new Error('Socket not initialized');
+        let response = await this.emitWithAck('authentication_subscribe_activation', {publicKey});
+        if(!response.ok) throw new Error('Error subscribing for certificate activation');
+
+        let routingKey = `evenement.CoreMaitreDesComptes.activationFingerprintPk`;
+        this.socket.on(routingKey, async (event: any) => {
+            try {
+                let responseMessage = await this.verifyResponse(event.message, {domain: 'CoreMaitreDesComptes'});
+                callback({...event, message: responseMessage});
+            } catch(err) {
+                console.error("Error during event verification: ", err);
+            }
+        });
+    }
+
+    async unsubscribeActivationCode(callback: SubscriptionCallback, publicKey: string): Promise<void> {
+        if(!this.socket) throw new Error('Socket not initialized');
+        let routingKey = `evenement.CoreMaitreDesComptes.activationFingerprintPk`;
+        this.socket.off(routingKey, callback);
+
+        let response = await this.emitWithAck('authentication_unsubscribe_activation', {publicKey});
+        if(!response.ok) console.warn("Error unsubscribing to listen for a certificate activation");
+    }
+
+    async subscribe(subscribeEventName: string, callback: SubscriptionCallback, parameters?: SubscriptionParameters, opts?: SendProps): Promise<void> {
+        if(!this.socket) throw new Error('Socket not initialized');
+        throw new Error("todo");
+        // try {
+        //     // var resultat = await emitBlocking(nomEventSocketio, params, {...opts, noformat: true})
+        //     var resultat = await this.emitWithAck(subscribeEventName, params, 
+        //         {kind: KIND_COMMANDE, ...opts, ajouterCertificat: true})
+        // } catch(err) {
+        //     // Cas special lors de reconnexion a un serveur qui redemarre
+        //     console.warn("Erreur subscribe %s, attendre 5 secondes et ressayer", subscribeEventName)
+        //     resultat = await this.emitWithAck(subscribeEventName, params, 
+        //         {kind: KIND_COMMANDE, ...opts, ajouterCertificat: true})
+        // }
+      
+        // // console.debug("Resultat subscribe %s : %O", nomEventSocketio, resultat)
+        // if(resultat && resultat.ok === true) {
+        //     resultat.routingKeys.forEach(item=>{
+        //         console.debug("subscribe %s Ajouter socketOn %s", subscribeEventName, item)
+        //         // socketOn(item, cb)  // Note : pas sur pourquoi ca ne fonctionne pas (recoit erreur value)
+        //         this.socket?.on(item, async event => {
+        //             const message = event.message
+        //             if(message.sig && message.certificat) {
+        //                 const resultat = await x509VerifierMessage(message)
+        //                 // console.debug("Resultat validation : %O", resultat)
+        //                 if(resultat === true) {
+        //                     // Parse le contenu, conserver original
+        //                     let contenu = message
+        //                     if(message.contenu) {
+        //                         // Remplacer event.message par contenu
+        //                         contenu = JSON.parse(message.contenu)
+        //                         contenu['__original'] = message
+        //                         event.message = contenu
+        //                     }
+        //                     try {
+        //                         return cb(event)
+        //                     } catch(err) {
+        //                         console.error("subscribe Erreur callback (1) : ", err)
+        //                     }
+        //                 } else {
+        //                     console.error("subscribe callback Reponse invalide (hachage/signature incorrect) ", message)
+        //                 }
+        //             } else {
+        //                 console.warn("Reponse recue sans signature/cert : ", event)
+        //                 try {
+        //                     return await cb(event)
+        //                 } catch(err) {
+        //                     console.error("subscribe Erreur callback (2) : ", err)
+        //                 }
+        //             }        
+        //         })
+        //     })
+        // } else {
+        //     const err = new Error(`Erreur subscribe ${subscribeEventName}`)
+        //     // @ts-ignore
+        //     err.reponse = resultat
+        //     throw err
+        // }
+    }
+    
+    async unsubscribe(subscribeEventName: string, callback: SubscriptionCallback, parameters?: SubscriptionParameters): Promise<void> {
+        if(!this.socket) throw new Error('Socket not initialized');
+        throw new Error("todo");
+        // try {
+        //     this.socket.off(subscribeEventName, callback);
+        //     console.debug("unsubscribe %s (params : %O)", subscribeEventName, params)
+            
+        //     const resultat = await connexion.emitWithAck(subscribeEventName, params, {kind: KIND_COMMANDE, ...opts, ajouterCertificat: true})
+        //     console.debug("unsubscribe %s (Resultat : %O)", subscribeEventName, resultat)
+    
+        //     if(resultat && resultat.ok === true) {
+        //         resultat.routingKeys.forEach(item=>{
+        //             console.debug("unsubscribe %s Retirer socketOn %s", subscribeEventName, item)
+        //             // socketOff(item, cb)
+        //             if(this.socket) {
+        //                 //_socket.off(nomEventSocketio, cb)  // voir subscribe(), on ne peut pas retirer par cb
+        //                 this.socket.removeAllListeners(item)
+        //             }
+        //         })
+        //     }
+        // } catch(err) {
+        //   console.error("Erreur unsubscribe : %O", err)
+        // }
+    }
+    
 }
 
 export class ConnectionWorker {

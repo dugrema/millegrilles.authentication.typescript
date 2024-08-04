@@ -35,7 +35,8 @@
     "screens": {
         "recovery": {
             "instructions1": "The authentication using security devices for your {{username}} account has failed.",
-            "instructions2": "To access your account, use the following activation code from another mobile device or computer. You can also provide it to the system owner to restore your access."
+            "instructions2": "To access your account, use the following activation code from another mobile device or computer. You can also provide it to the system owner to restore your access.",
+            "instructions3": "You can wait on this screen. You will be logged in as soon as your code is activated."
         },
         "registration": {
             "instructions1": "The user account {{username}} is available. Click on the Register button to claim it."
