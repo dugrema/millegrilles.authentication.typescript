@@ -495,11 +495,14 @@ export default class ConnectionSocketio {
         if(!this.socket) throw new Error('Socket not initialized');
 
         let handler = this.unsubscribeHandlers[subscribeEventName];
+        delete this.unsubscribeHandlers[subscribeEventName];  // Cleanup
         if(handler) {
             try { handler(); }
             catch(err) { console.warn("Error running unsubscribe handler ", err); }
         } else {
-            console.warn("Previous event unsubscribe handler is missing");
+            // console.info("Previous event unsubscribe handler is missing");            
+            // Nothing to do.
+            return
         }
 
         let routing = {domaine: 'unsubscribe', action: subscribeEventName};
