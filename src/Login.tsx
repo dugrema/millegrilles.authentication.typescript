@@ -530,7 +530,7 @@ function RecoveryScreen(props: RecoveryScreenProps) {
     let back = props.back;
     let sessionDuration = props.sessionDuration;
 
-    let connectionAuthenticated = useConnectionStore((state) => state.connectionAuthenticated);
+    let connectionReady = useConnectionStore((state) => state.connectionReady);
     let setMustManuallyAuthenticate = useConnectionStore((state) => state.setMustManuallyAuthenticate);
     let setConnectionAuthenticated = useConnectionStore((state) => state.setConnectionAuthenticated);
     let setUsernameStore = useConnectionStore( state => state.setUsername );
@@ -591,14 +591,14 @@ function RecoveryScreen(props: RecoveryScreenProps) {
     }), [workers, username, sessionDuration, back, setUsernameStore, setMustManuallyAuthenticate, setConnectionAuthenticated, setUsernamePersist, setSessionDurationPersist]);
 
     useEffect(()=>{
-        if(!workers || !connectionAuthenticated || !activationCode) return;  // Not ready
+        if(!workers || !connectionReady || !activationCode) return;  // Not ready
         workers.connection.subscribeActivationCode(receiveConfirmationCallback, publicKey)
             .catch(err=>console.error("Error subscribing for activation code", err));
         return () => {
             workers?.connection.unsubscribeActivationCode(receiveConfirmationCallback, publicKey)
                 .catch(err=>console.error("Error subscribing for activation code", err));
         }
-    }, [workers, publicKey, connectionAuthenticated, activationCode, receiveConfirmationCallback])
+    }, [workers, publicKey, connectionReady, activationCode, receiveConfirmationCallback])
 
     useEffect(()=>{
         getUser(username)
