@@ -1,5 +1,7 @@
-import { useState, useCallback, useEffect, MouseEvent, MouseEventHandler, Dispatch, SyntheticEvent } from 'react';
+import { useState, useCallback, useEffect, useMemo, MouseEvent, MouseEventHandler, Dispatch, SyntheticEvent } from 'react';
 import { Popover } from 'flowbite-react';
+import { proxy } from 'comlink';
+
 import { createCertificateRequest, LanguageSelectbox, prepareAuthentication, PrepareAuthenticationResult, prepareRenewalIfDue, signAuthenticationRequest, userLoginVerification } from './Login';
 import VersionInfo from './VersionInfo';
 import useUserStore from './connectionStore';
@@ -13,6 +15,9 @@ import ForwardIcon from './resources/forward-svgrepo-com.svg';
 import SetupIcon from './resources/set-up-svgrepo-com.svg';
 import { useTranslation } from 'react-i18next';
 import cleanup from './idb/cleanup';
+import { MessageResponse, SubscriptionMessage } from './workers/connectionV3';
+import useConnectionStore from './connectionStore';
+import { messageStruct } from 'millegrilles.cryptography';
 
 const CLASSNAME_BUTTON = `
     transition ease-in-out 
@@ -30,13 +35,25 @@ type ApplicationListProps = {
     setPage: Dispatch<string>,
 };
 
+type UserUpdateEvent = (MessageResponse | messageStruct.MilleGrillesMessage) & {
+    delegations_date?: number,
+    delegations_version?: number,
+    delegation_globale?: string,
+    compte_prive?: boolean,
+    nomUsager?: string,
+    userId?: string,
+}
+
 function ApplicationList(props: ApplicationListProps) {
 
     let { t } = useTranslation();
+    let workers = useWorkers();
 
     let username = useUserStore(state=>state.username);
     let certificateRenewable = useUserStore(state=>state.certificateRenewable);
+    let setCertificateRenewable = useUserStore(state=>state.setCertificateRenewable);
     let connectionInsecure = useUserStore(state=>state.connectionInsecure);
+    let connectionAuthenticated = useConnectionStore(state=>state.connectionAuthenticated);
 
     let {logout, setPage} = props;
 
@@ -52,6 +69,30 @@ function ApplicationList(props: ApplicationListProps) {
         let pageName = target?target.value:null;
         if(pageName) setPage(pageName);
     }, [setPage]);
+
+    let userEventCallback = useMemo(()=>proxy(async (e: SubscriptionMessage) => {
+        // Check if the delegations_date is > than current certificate.
+        let message = e.message as UserUpdateEvent;
+        let deletagions_date = message.delegations_date;
+        let certificate = await workers?.connection.getMessageFactoryCertificate();
+        let notBeforeDate = certificate?.certificate.notBefore;
+        if(!notBeforeDate || !deletagions_date || notBeforeDate.getTime() < deletagions_date*1000) {
+            setCertificateRenewable(true);
+        }
+    }), [workers, username, setCertificateRenewable]);
+
+    useEffect(()=>{
+        if(!workers || !connectionAuthenticated) return;
+        workers.connection.subscribe('userAccountEvents', userEventCallback)
+            .catch(err=>console.error("Error subscribing for account events", err));
+        return () => {
+            workers?.connection.unsubscribe('userAccountEvents', userEventCallback)
+                .catch(err=>{
+                    // Note  : this error occurs if the page changes (e.g. logout)
+                    console.info("Error unsubscribing for account events: " + err);
+                });
+        }
+    }, [workers, connectionAuthenticated, userEventCallback])
 
     return (
         <div>

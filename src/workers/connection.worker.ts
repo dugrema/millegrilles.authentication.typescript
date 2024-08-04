@@ -1,6 +1,6 @@
 import { expose } from 'comlink';
 import { forgeCsr } from 'millegrilles.cryptography'
-import { ConnectionWorker, MessageResponse, SubscriptionCallback } from './connectionV3';
+import { ConnectionWorker, MessageResponse, SubscriptionCallback, SubscriptionParameters } from './connectionV3';
 
 import '@solana/webcrypto-ed25519-polyfill';
 import apiMapping from '../resources/apiMapping.json';
@@ -151,6 +151,15 @@ export class AuthenticationConnectionWorker extends ConnectionWorker {
         return await this.connection.unsubscribeActivationCode(callback, publicKey);
     }
 
+    async subscribe(subscribeEventName: string, callback: SubscriptionCallback, params?: SubscriptionParameters) {
+        if(!this.connection) throw new Error("Connection is not initialized");
+        return await this.connection.subscribe(subscribeEventName, callback, params);
+    }
+
+    async unsubscribe(subscribeEventName: string, callback: SubscriptionCallback, params?: SubscriptionParameters) {
+        if(!this.connection) throw new Error("Connection is not initialized");
+        return await this.connection.unsubscribe(subscribeEventName, callback, params);
+    }
 }
 
 var worker = new AuthenticationConnectionWorker();

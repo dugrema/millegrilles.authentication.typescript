@@ -1,29 +1,27 @@
 {
     "defaults": {
-      "domain": "CoreMaitreDesComptes",
-      "exchange": "2.prive"
+        "domain": "CoreMaitreDesComptes",
+        "exchange": "2.prive"
     },
     "requests": [
-      {"domain": "CoreTopologie", "action": "listeApplicationsDeployees"},
-      {"action": "chargerUsager", "exchange": "1.public"},
-      {"action": "getCsrRecoveryParcode"}
+        {"domain": "CoreTopologie", "action": "listeApplicationsDeployees"},
+        {"action": "chargerUsager", "exchange": "1.public"},
+        {"action": "getCsrRecoveryParcode"}
     ],
     "commands": [
-      {"action": "inscrireUsager"},
-      {"action": "ajouterCsrRecovery"},
-      {"action": "genererChallenge"},
-      {"action": "ajouterCle"},
-      {"action": "signerCompteUsager"},
-      {"action": "ajouterDelegationSignee"}
+        {"action": "inscrireUsager"},
+        {"action": "ajouterCsrRecovery"},
+        {"action": "genererChallenge"},
+        {"action": "ajouterCle"},
+        {"action": "signerCompteUsager"},
+        {"action": "ajouterDelegationSignee"}
     ],
-    "subscriptions": [
-        {
-            "subscribe": "ecouterEvenementsCompteUsager",
-            "unsubscribe": "retirerEvenementsCompteUsager",
+    "subscriptions": {
+        "userAccountEvents": {
             "exchanges": ["2.prive"],
             "routingKeys": [
                 "evenement.CoreMaitreDesComptes.{USER_ID}.majCompteUsager"
             ]
         }
-    ]
+    }
 }
