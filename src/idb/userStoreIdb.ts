@@ -163,6 +163,38 @@ export async function maintenance(username: string, maxAge?: number) {
     // ])
 }
 
+export async function receiveCertificate(username: string, certificate: Array<string>) {
+    let ca = certificate.pop();
+
+    let userIdb = await getUser(username);
+    let certificateRequest = userIdb?.request;
+    if(!certificateRequest) {
+        throw new Error("Error during certificate renewal, no active certificate available");
+    }
+
+    let certificateEntry = {
+        certificate,
+        // Transfer request private key and values to the new certificate
+        publicKey: certificateRequest.publicKey,
+        privateKey: certificateRequest.privateKey,
+        publicKeyString: certificateRequest.publicKeyString,
+    };
+    await updateUser({
+        username, certificate: certificateEntry,
+        request: undefined, // Remove previous request
+        // legacy web apps
+        ca, certificat: certificate, clePriveePem: certificateRequest.privateKeyPem,
+    });
+}
+
+export async function clearCertificate(username: string) {
+    await updateUser({
+        username, certificate: undefined,
+        // legacy web apps
+        ca: undefined, certificat: undefined, clePriveePem: undefined,
+    });
+}
+
 // async function entretienCacheClesSecretes(expirationTime: Date) {
 //   const db = await openDB()
 

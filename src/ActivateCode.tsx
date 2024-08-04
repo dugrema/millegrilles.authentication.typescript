@@ -4,9 +4,9 @@ import useConnectionStore from './connectionStore';
 import useWorkers, { AppWorkers } from './workers/workers';
 import { DelegationChallengeType } from './workers/connection.worker';
 import { certificates, ed25519, forgeCsr, messageStruct } from 'millegrilles.cryptography';
-import { prepareAuthentication, PrepareAuthenticationResult, signAuthenticationRequest } from './Login';
 import { useTranslation } from 'react-i18next';
 import { RenewCertificate } from './ApplicationList';
+import { prepareAuthentication, PrepareAuthenticationResult, signAuthenticationRequest } from './webauthn';
 
 type ActivateCodeProps = {
     back: any,

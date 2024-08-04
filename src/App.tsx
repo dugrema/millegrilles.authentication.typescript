@@ -51,7 +51,7 @@ function ContentRouter(props: AuthAndContentProps): JSX.Element {
         setPage('');
     }, [setPage]);
 
-    // Override pages depending on authentication state
+    // Initial pages depending on authentication state
     if(mustManuallyAuthenticate) return <Login />;
     if(!connectionAuthenticated) return <Loading />;
 

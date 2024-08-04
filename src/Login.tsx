@@ -1,19 +1,18 @@
 import {Dispatch, useState, useMemo, useCallback, useEffect} from 'react';
 import axios from 'axios';
-import { proxy } from 'comlink';
-import stringify from 'json-stable-stringify';
 import { useTranslation } from 'react-i18next';
 
-import { multiencoding, certificates, messageStruct, digest } from 'millegrilles.cryptography';
+import { multiencoding, certificates, messageStruct } from 'millegrilles.cryptography';
 
 import LanguageIcon from './resources/language-svgrepo-com.svg';
 import VersionInfo from './VersionInfo';
 import useConnectionStore from './connectionStore';
 import useAuthenticationStore from './authenticationStore';
 import useWorkers, { AppWorkers } from './workers/workers';
-import { getUser, getUsersList, updateUser, UserCertificateRequest } from './idb/userStoreIdb';
+import { clearCertificate, getUser, getUsersList, receiveCertificate, updateUser, UserCertificateRequest } from './idb/userStoreIdb';
 import { AuthenticationChallengePublicKeyType, AuthenticationChallengeType } from './workers/connection.worker';
-import { MessageResponse, SubscriptionMessage } from './workers/connectionV3';
+import { prepareAuthentication, PrepareAuthenticationResult, signAuthenticationRequest } from './webauthn';
+import RecoveryScreen from './RecoveryScreen';
 
 function Login() {
 
@@ -64,7 +63,7 @@ function Login() {
 
         if(webauthnChallenge) {
             // Immediately sign the challenge - allows for 1-pass on iOS
-            authenticate(workers, username, webauthnChallenge.demandeCertificat, webauthnChallenge.publicKey, sessionDuration)
+            authenticateHttpSession(workers, username, webauthnChallenge.demandeCertificat, webauthnChallenge.publicKey, sessionDuration)
                 .then(async () => {
                     setUsernameStore(username);
                     setMustManuallyAuthenticate(false);
@@ -120,6 +119,34 @@ function Login() {
         
     }, [workers, username, setMainOpacity, setUsernameStore, setRegister, setRecoveryScreen, webauthnChallenge, sessionDuration, setUsernamePersist, setSessionDurationPersist, setConnectionAuthenticated, setMustManuallyAuthenticate, notAvailable]);
 
+    let prepareSignatureHandler = useCallback(async (webauthnChallenge: AuthenticationChallengeType)=>{
+        // Check if the user exists locally and verify if certificate should be renewed.
+        let csr: string | null = null;
+        let user = await getUser(username);
+        if(workers) {
+            if(!user?.request) {
+                if(user?.certificate) {
+                    let wrapper = certificates.wrapperFromPems(user.certificate.certificate);
+                    wrapper.populateExtensions();
+                    let entry = await prepareRenewalIfDue(workers, wrapper);
+                    if(entry) {
+                        csr = entry.pem;
+                    }
+                } else {
+                    // There is no certificate. Generate a CSR
+                    let entry = await createCertificateRequest(workers, username);
+                    csr = entry.pem;
+                }
+            } else if(user?.request) {
+                // Use the CSR for the signature
+                csr = user?.request.pem;
+            }
+        }
+
+        let preparedChallenge = await prepareAuthentication(username, webauthnChallenge, csr, false);
+        setWebauthnChallenge(preparedChallenge);
+    }, [workers, username, setWebauthnChallenge]);
+
     // Pre-emptive loading of user authentication information
     useEffect(()=>{
         setNotAvailable(false);  // Reset
@@ -138,31 +165,8 @@ function Login() {
                 setConnectionInsecure(true);  // Flag that indicates a connection that doesn't require security devices
             } else if(webauthnChallenge) {
                 // Check if the user exists locally and verify if certificate should be renewed.
-                let csr: string | null = null;
-                let user = await getUser(username);
-                if(workers) {
-                    if(!user?.request) {
-                        if(user?.certificate) {
-                            let wrapper = certificates.wrapperFromPems(user.certificate.certificate);
-                            wrapper.populateExtensions();
-                            let entry = await prepareRenewalIfDue(workers, wrapper);
-                            if(entry) {
-                                csr = entry.pem;
-                            }
-                        } else {
-                            // There is no certificate. Generate a CSR
-                            let entry = await createCertificateRequest(workers, username);
-                            csr = entry.pem;
-                        }
-                    } else if(user?.request) {
-                        // Use the CSR for the signature
-                        csr = user?.request.pem;
-                    }
-                }
-
-                let preparedChallenge = await prepareAuthentication(username, webauthnChallenge, csr, false);
+                await prepareSignatureHandler(webauthnChallenge);
                 setWebauthnReady(true);
-                setWebauthnChallenge(preparedChallenge);
             } else {
                 setWebauthnChallenge(undefined);
                 setWebauthnReady(false);
@@ -173,7 +177,7 @@ function Login() {
             }
         }, 400);
         return () => clearTimeout(timeout);
-    }, [workers, username, setWebauthnReady, setWebauthnChallenge, setConnectionInsecure, setNotAvailable])
+    }, [workers, username, setWebauthnReady, setWebauthnChallenge, setConnectionInsecure, setNotAvailable, prepareSignatureHandler])
 
     // Timer to renew the webauthn challenge regularly to avoid stale requests if the user is
     // away from the screen.
@@ -184,36 +188,12 @@ function Login() {
             let userInfo = await userLoginVerification(username);
             let webauthnChallenge = userInfo?.authentication_challenge;
             if(webauthnChallenge) {
-                // Check if the user exists locally and verify if certificate should be renewed.
-                let csr: string | null = null;
-                let user = await getUser(username);
-                if(workers) {
-                    if(!user?.request) {
-                        if(user?.certificate) {
-                            let wrapper = certificates.wrapperFromPems(user.certificate.certificate);
-                            wrapper.populateExtensions();
-                            let entry = await prepareRenewalIfDue(workers, wrapper);
-                            if(entry) {
-                                csr = entry.pem;
-                            }
-                        } else {
-                            // There is no certificate. Generate a CSR
-                            let entry = await createCertificateRequest(workers, username);
-                            csr = entry.pem;
-                        }
-                    } else if(user?.request) {
-                        // Use the CSR for the signature
-                        csr = user?.request.pem;
-                    }
-                }
-
-                let preparedChallenge = await prepareAuthentication(username, webauthnChallenge, csr, false);
-                setWebauthnChallenge(preparedChallenge);
+                await prepareSignatureHandler(webauthnChallenge);
             }            
         }, 57_000);
 
         return () => clearTimeout(timeout);
-    }, [workers, username, webauthnChallenge, setWebauthnChallenge])
+    }, [workers, username, webauthnChallenge, setWebauthnChallenge, prepareSignatureHandler])
 
     let usernameOnChangeHandler = useCallback((e: React.FormEvent<HTMLInputElement>) => {
         setError('');
@@ -410,7 +390,7 @@ function WebauthnChallengeScreen(props: WebauthnChallengeScreenProps) {
     
     let loginHandler = useCallback(()=>{
         if(!workers) throw new Error("Workers not initialized");
-        authenticate(workers, username, webauthnChallenge.demandeCertificat, webauthnChallenge.publicKey, sessionDuration)
+        authenticateHttpSession(workers, username, webauthnChallenge.demandeCertificat, webauthnChallenge.publicKey, sessionDuration)
             .then(()=>{
                 setConnectionAuthenticated(true);
                 setMustManuallyAuthenticate(false);
@@ -533,140 +513,6 @@ export function LanguageSelectbox() {
     )
 }
 
-type RecoveryScreenProps = {
-    username: string,
-    back(): void,
-    sessionDuration: number,
-}
-
-type ActivationMessage = (MessageResponse | messageStruct.MilleGrillesMessage) & {
-    certificat?: Array<string>,
-    fingerprint_pk?: string,
-};
-
-function RecoveryScreen(props: RecoveryScreenProps) {
-
-    let { t } = useTranslation();
-    let workers = useWorkers();
-    let username = props.username;
-    let back = props.back;
-    let sessionDuration = props.sessionDuration;
-
-    let connectionReady = useConnectionStore((state) => state.connectionReady);
-    let setMustManuallyAuthenticate = useConnectionStore((state) => state.setMustManuallyAuthenticate);
-    let setConnectionAuthenticated = useConnectionStore((state) => state.setConnectionAuthenticated);
-    let setUsernameStore = useConnectionStore( state => state.setUsername );
-    let setUsernamePersist = useAuthenticationStore( state => state.setUsername );
-    let setSessionDurationPersist = useAuthenticationStore( state => state.setSessionDuration );
-
-    let [publicKey, setPublicKey] = useState<string>('');
-    let [activationCode, setActivationCode] = useState<string>('');
-
-    let receiveConfirmationCallback = useMemo(()=>proxy(async (event: SubscriptionMessage) => {
-        let activation = event.message as ActivationMessage;
-        if(activation.certificat && activation.fingerprint_pk) {
-            let userIdb = await getUser(username);
-            if(!userIdb) {
-                throw new Error("Uknown user " + username);
-            }
-            let certificateRequest = userIdb.request;
-            if(!certificateRequest || certificateRequest.publicKeyString !== activation.fingerprint_pk) {
-                throw new Error("Mismatch between local request and new certificate");
-            }
-            let certificate = activation.certificat;
-            let ca = certificate.pop();  // Remove last certificate (CA)
-            let certificateEntry = {
-                certificate: certificate,
-                publicKey: certificateRequest.publicKey,
-                privateKey: certificateRequest.privateKey,
-                publicKeyString: certificateRequest.publicKeyString,
-            };
-            await updateUser({
-                username, certificate: certificateEntry,
-                request: undefined, // Remove previous request
-                // legacy
-                ca, certificat: certificate, clePriveePem: certificateRequest.privateKeyPem,
-            });
-
-            // Ready, log the user in
-            if(workers) {
-                setUsernameStore(username);
-
-                // Activate the server session
-                await performLogin(workers, username, sessionDuration);
-                
-                // Authenticate the connection worker
-                await authenticateConnectionWorker(workers, username, true);
-
-                setMustManuallyAuthenticate(false);
-                setConnectionAuthenticated(true);
-
-                // Persist information for next time the screen is loaded
-                setUsernamePersist(username);
-                setSessionDurationPersist(sessionDuration);
-
-            } else {
-                console.warn("Workers not initialized");
-                back();
-            }
-        }
-    }), [workers, username, sessionDuration, back, setUsernameStore, setMustManuallyAuthenticate, setConnectionAuthenticated, setUsernamePersist, setSessionDurationPersist]);
-
-    useEffect(()=>{
-        if(!workers || !connectionReady || !activationCode) return;  // Not ready
-        workers.connection.subscribeActivationCode(receiveConfirmationCallback, publicKey)
-            .catch(err=>console.error("Error subscribing for activation code", err));
-        return () => {
-            workers?.connection.unsubscribeActivationCode(receiveConfirmationCallback, publicKey)
-                .catch(err=>console.error("Error subscribing for activation code", err));
-        }
-    }, [workers, publicKey, connectionReady, activationCode, receiveConfirmationCallback])
-
-    useEffect(()=>{
-        getUser(username)
-            .then(async userIdb => {
-                let entry;
-                if(!workers) throw new Error("Workers not intialized");
-                if(!userIdb?.request) {
-                    // Generate new CSR
-                    entry = await createCertificateRequest(workers, username);
-                } else {
-                    entry = userIdb.request;
-                }
-                let code = entry.publicKeyString.slice(entry.publicKeyString.length-8);
-                let formattedCode = code.slice(0,4) + '-' + code.slice(4);
-                let addRecoveryResult = await workers.connection.addRecoveryCsr(username, entry.pem);
-                if(!addRecoveryResult.ok) throw new Error(`Error adding recovery code: ${addRecoveryResult.err}"`);
-
-                // Set values
-                setPublicKey(entry.publicKeyString);
-                setActivationCode(formattedCode);
-            })
-            .catch(err=>console.error("Error adding recovery code for user %s: %O", username, err));
-    }, [workers, username, setPublicKey, setActivationCode])
-
-    return (
-        <div className='MessageBox grid grid-cols-3 min-w-80 max-w-lg border-4 border-slate-500 shadow-2xl rounded-xl p-8 bg-slate-900 text-slate-300 justify-items-end'>
-
-            <p className='col-span-3 text-left mb-4 min-w-full'>{t('screens.recovery.instructions1', {username})}</p>
-            <p className='col-span-3 text-left mb-4 min-w-full'>{t('screens.recovery.instructions2')}</p>
-
-            <p className='text-left'>{t('labels.activationCode')}</p>
-            <p className='col-span-2 text-left'>{activationCode}</p>
-
-            <p className='col-span-3 text-left mt-4 mb-4 min-w-full'>{t('screens.recovery.instructions3')}</p>
-
-            <div className='flex min-w-full col-span-3 justify-center mt-10'>
-                <button onClick={props.back}
-                    className='btn bg-indigo-800 hover:bg-indigo-600 active:bg-indigo-500' >
-                        {t('buttons.cancel')}
-                </button>
-            </div>
-
-        </div>
-    )
-}
-
 type MessageProps = {
     error: string,
     setError: Dispatch<string>,
@@ -720,23 +566,10 @@ export async function userLoginVerification(username: string): Promise<UserLogin
         let content = await JSON.parse(response.data.contenu) as UserLoginVerificationResult;
         if(content.certificat && userIdb?.request) {
             let certificate = content.certificat;
-            let ca = certificate.pop();
-            // Save the new certificate
-            let certificateRequest = userIdb.request;
-            let certificateEntry = {
-                certificate: content.certificat,
-                publicKey: certificateRequest.publicKey,
-                privateKey: certificateRequest.privateKey,
-                publicKeyString: certificateRequest.publicKeyString,
-            };
-            await updateUser({
-                username, certificate: certificateEntry,
-                request: undefined, // Remove previous request
-                // legacy
-                ca, certificat: certificate, clePriveePem: certificateRequest.privateKeyPem,
-            });
+            await receiveCertificate(username, certificate);
 
             // Do a new request to check that the back-end will accept activation with this certificate
+            let certificateRequest = userIdb.request;
             data.fingerprintPkNouveau = undefined;
             data.fingerprintPkCourant = certificateRequest.publicKeyString;
             response = await axios({method: 'POST', url: '/auth/get_usager', data, timeout: 20_000 });
@@ -779,20 +612,7 @@ async function registerUser(workers: AppWorkers, username: string, sessionDurati
 
     // Get the newly generated certificate chain. The last one is the CA, remove it from the chain.
     let certificate = response.certificat;
-    let ca = certificate.pop();
-
-    let certificateEntry = {
-        certificate,
-        publicKey: certificateRequest.publicKey,
-        privateKey: certificateRequest.privateKey,
-        publicKeyString: certificateRequest.publicKeyString,
-    };
-    await updateUser({
-        username, certificate: certificateEntry,
-        request: undefined, // Remove previous request
-        // legacy
-        ca, certificat: certificate, clePriveePem: certificateRequest.privateKeyPem,
-    });
+    await receiveCertificate(username, certificate);
 
     // Activate the server session
     await performLogin(workers, username, sessionDuration);
@@ -812,11 +632,7 @@ export async function prepareRenewalIfDue(workers: AppWorkers, certificate: cert
 
     if(now > expiration) {
         // The certificate is expired. Remove it and generate new request.
-        updateUser({
-            username, certificate: undefined, 
-            // Legacy
-            certificat: undefined, clePriveePem: undefined, ca: undefined,
-        });
+        await clearCertificate(username);
         let entry = await createCertificateRequest(workers, username, userId);
         return entry;
     } else {
@@ -846,7 +662,7 @@ type PerformLoginResult = {
     webauthnChallenge?: AuthenticationChallengeType,
 }
 
-async function performLogin(workers: AppWorkers, username: string, sessionDuration: number): Promise<PerformLoginResult> {
+export async function performLogin(workers: AppWorkers, username: string, sessionDuration: number): Promise<PerformLoginResult> {
     let userDbInfo = await getUser(username)
 
     // let currentPublicKey: string | undefined;
@@ -902,7 +718,56 @@ async function certificateAuthentication(workers: AppWorkers, challenge: string,
     return authenticationResponse
 }
 
-export async function authenticateConnectionWorker(workers: AppWorkers, username: string, userSessionActive: boolean): Promise<PerformLoginResult> {
+/**
+ * Authenticate the HTTP session to get a session cookie. This is pre-requisite before using
+ * the connection worker. The same session cookie will be used with the socket-io HTTP session.
+ * @param workers 
+ * @param username 
+ * @param demandeCertificat 
+ * @param publicKey 
+ * @param sessionDuration 
+ * @returns 
+ */
+async function authenticateHttpSession(workers: AppWorkers, username: string, demandeCertificat: any, 
+    publicKey: AuthenticationChallengePublicKeyType, sessionDuration: number): Promise<AuthenticationResponseType> 
+{
+    // N.B. La methode doit etre appelee par la meme thread que l'event pour supporter
+    //      TouchID sur iOS.
+    const data = await signAuthenticationRequest(username, demandeCertificat, publicKey, sessionDuration);
+
+    const resultatAuthentification = await axios.post('/auth/authentifier_usager', data)
+    const authResponse = resultatAuthentification.data
+    const responseContent = JSON.parse(authResponse.contenu) as AuthenticationResponseType;
+
+    if(responseContent.auth && responseContent.userId) {
+
+        if(responseContent.certificat) {
+            // Save the new certificate over the old one
+            // Get the newly generated certificate chain. The last one is the CA, remove it from the chain.
+            let certificate = responseContent.certificat;
+            await receiveCertificate(username, certificate);
+        }
+
+        // Activate the server session
+        await performLogin(workers, username, sessionDuration);
+        
+        // Authenticate the connection worker
+        return await authenticateConnectionWorker(workers, username, true);
+    } else {
+        throw new Error("WebAuthn.authentifier Erreur authentification")
+    }
+}
+
+/**
+ * Connect using socket-io.
+ * @param workers 
+ * @param username 
+ * @param userSessionActive 
+ * @returns 
+ */
+export async function authenticateConnectionWorker(workers: AppWorkers, username: string, 
+    userSessionActive: boolean): Promise<PerformLoginResult> 
+{
     if(!workers) return {};  // Waiting for a connection
 
     if(!userSessionActive || !username) {
@@ -927,12 +792,12 @@ export async function authenticateConnectionWorker(workers: AppWorkers, username
 
     let wrapper = new certificates.CertificateWrapper(certificateInfo.certificate);
 
-    // Check if the certificat is expired
+    // Check if the certificate is expired
     let expiration = wrapper.certificate.notAfter;
     let now = new Date();
     if(now > expiration) {
         // The certificate is expired. Remove it, generate a new CSR and force manual authentication.
-        await updateUser({username, certificate: undefined});
+        await clearCertificate(username);
         let userId: string | undefined = undefined;  // TODO : get userId
         await createCertificateRequest(workers, username, userId);
         return { mustManuallyAuthenticate: true };
@@ -946,137 +811,4 @@ export async function authenticateConnectionWorker(workers: AppWorkers, username
     if(!await workers.connection.authenticate(true)) throw new Error('Authentication failed (api mapping)');
 
     return { authenticated: true };
-}
-
-export type PrepareAuthenticationResult = {
-    publicKey: AuthenticationChallengePublicKeyType, 
-    demandeCertificat: any, 
-    challengeReference: string,
-};
-
-export async function prepareAuthentication(
-    username: string, challengeWebauthn: AuthenticationChallengeType, csr: string | null, activationTierce: boolean
-): Promise<PrepareAuthenticationResult> {
-    if(!challengeWebauthn.publicKey) throw new Error("Challenge without the publicKey field");
-
-    const challengeReference = challengeWebauthn.publicKey.challenge
-    const publicKey = {...challengeWebauthn.publicKey} as any
-
-    // Decoder les champs base64url
-    publicKey.challenge = multiencoding.decodeBase64Url(publicKey.challenge);
-    publicKey.allowCredentials = challengeWebauthn.publicKey.allowCredentials?.map(cred=>{
-        const idBytes = multiencoding.decodeBase64Url(cred.id);
-        return {
-            ...cred,
-            id: idBytes
-        }
-    });
-
-    let demandeCertificat: {nomUsager: string, csr: string, date: number, activationTierce?: boolean} | null = null;
-    if(csr) {
-        demandeCertificat = {
-            nomUsager: username,
-            csr,
-            date: Math.floor(new Date().getTime()/1000),
-        }
-        if(activationTierce === true) demandeCertificat.activationTierce = true
-        let requestBytes = new TextEncoder().encode(stringify(demandeCertificat));
-        const hachageDemandeCert = await digest.digest(requestBytes, {digestName: 'blake2s-256', encoding: 'bytes'});
-        if(typeof(hachageDemandeCert) === 'string') throw new Error("Wrong digest response type");
-        
-        // Concatener le challenge recu (32 bytes) au hachage de la commande
-        // Permet de signer la commande de demande de certificat avec webauthn
-        const challengeMaj = new Uint8Array(64)
-        challengeMaj.set(publicKey.challenge, 0)
-        challengeMaj.set(hachageDemandeCert, 32)
-        publicKey.challenge = challengeMaj
-    } 
-
-    const resultat = { publicKey, demandeCertificat, challengeReference }
-    
-    return resultat
-}
-
-async function authenticate(workers: AppWorkers, username: string, demandeCertificat: any, publicKey: any, sessionDuration: number): Promise<AuthenticationResponseType> {
-    // N.B. La methode doit etre appelee par la meme thread que l'event pour supporter
-    //      TouchID sur iOS.
-    const data = await signAuthenticationRequest(username, demandeCertificat, publicKey, sessionDuration);
-
-    const resultatAuthentification = await axios.post('/auth/authentifier_usager', data)
-    const authResponse = resultatAuthentification.data
-    const responseContent = JSON.parse(authResponse.contenu) as AuthenticationResponseType;
-
-    if(responseContent.auth && responseContent.userId) {
-
-        if(responseContent.certificat) {
-            // Save the new certificate over the old one
-            // Get the newly generated certificate chain. The last one is the CA, remove it from the chain.
-            let certificate = responseContent.certificat;
-            let ca = certificate.pop();
-
-            let userIdb = await getUser(username);
-            let certificateRequest = userIdb?.request;
-            if(!certificateRequest) {
-                throw new Error("Error during certificate renewal, no active certificate available");
-            }
-
-            let certificateEntry = {
-                certificate,
-                publicKey: certificateRequest.publicKey,
-                privateKey: certificateRequest.privateKey,
-                publicKeyString: certificateRequest.publicKeyString,
-            };
-            await updateUser({
-                username, certificate: certificateEntry,
-                request: undefined, // Remove previous request
-                // legacy
-                ca, certificat: certificate, clePriveePem: certificateRequest.privateKeyPem,
-            });
-        }
-
-        // Activate the server session
-        await performLogin(workers, username, sessionDuration);
-        
-        // Authenticate the connection worker
-        return await authenticateConnectionWorker(workers, username, true);
-    } else {
-        throw new Error("WebAuthn.authentifier Erreur authentification")
-    }
-}
-
-type SignAuthenticationResult = {
-    nomUsager: string, 
-    demandeCertificat?: any, 
-    dureeSession?: number,
-    webauthn?: any,
-};
-
-export async function signAuthenticationRequest(username: string, demandeCertificat: string, publicKey: any, sessionDuration?: number): Promise<SignAuthenticationResult> {
-    // const connexion = opts.connexion
-    // N.B. La methode doit etre appelee par la meme thread que l'event pour supporter
-    //      TouchID sur iOS.
-    const publicKeyCredentialSignee = await navigator.credentials.get({publicKey}) as any
-    
-    const reponseSignee = publicKeyCredentialSignee.response
-
-    const reponseSerialisable = {
-        id64: multiencoding.encodeBase64Url(new Uint8Array(publicKeyCredentialSignee.rawId)),
-        response: {
-            authenticatorData: reponseSignee.authenticatorData?multiencoding.encodeBase64Url(new Uint8Array(reponseSignee.authenticatorData)):null,
-            clientDataJSON: reponseSignee.clientDataJSON?multiencoding.encodeBase64Url(new Uint8Array(reponseSignee.clientDataJSON)):null,
-            signature: reponseSignee.signature?multiencoding.encodeBase64Url(new Uint8Array(reponseSignee.signature)):null,
-            userHandle: reponseSignee.userHandle?multiencoding.encodeBase64Url(new Uint8Array(reponseSignee.userHandle)):null,
-        },
-        type: publicKeyCredentialSignee.type,
-    }
-
-    const data = {
-        nomUsager: username, 
-        demandeCertificat, 
-        webauthn: reponseSerialisable, 
-        challenge: publicKey.challenge
-    } as SignAuthenticationResult;
-    if(sessionDuration) data.dureeSession = sessionDuration;
-
-    return data
 }

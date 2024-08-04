@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useMemo, MouseEvent, MouseEventHandle
 import { Popover } from 'flowbite-react';
 import { proxy } from 'comlink';
 
-import { createCertificateRequest, LanguageSelectbox, prepareAuthentication, PrepareAuthenticationResult, prepareRenewalIfDue, signAuthenticationRequest, userLoginVerification } from './Login';
+import { createCertificateRequest, LanguageSelectbox, prepareRenewalIfDue, userLoginVerification } from './Login';
 import VersionInfo from './VersionInfo';
 import useUserStore from './connectionStore';
 import useWorkers from './workers/workers';
@@ -18,6 +18,7 @@ import cleanup from './idb/cleanup';
 import { MessageResponse, SubscriptionMessage } from './workers/connectionV3';
 import useConnectionStore from './connectionStore';
 import { messageStruct } from 'millegrilles.cryptography';
+import { prepareAuthentication, PrepareAuthenticationResult, signAuthenticationRequest } from './webauthn';
 
 type ApplicationListProps = {
     logout: MouseEventHandler<MouseEvent>,
