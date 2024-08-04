@@ -45,7 +45,10 @@
             "activateACodeDescription": "Activez un autre appareil sur votre compte en utilisant un code d'activation (par exemple abcd-1234) ou un code QR.",
             "addSecurityDevice": "Ajouter une clé de sécurité",
             "addSecurityDeviceDescription": "Ajoutez une nouvelle clé de sécurité pour accéder à vos comptes. Ceci peut être une clé de sécurité USB, un appareil Apple ou Android, etc.",
-            "logoutDescription": "Fermer l'application et effacer les informations secrètes."
+            "logoutDescription": "Fermer l'application et effacer les informations secrètes.",
+            "insecureAccount": "**Access to your account from this browser is not secured properly.",
+            "renewCertificate": "**Renew this browser's certificate",
+            "renewCertificateDetail": "**This renews the browser's connection. This is regular security check on your account and requires your security device."
         },
         "activateCode": {
             "title": "**Activate a code",

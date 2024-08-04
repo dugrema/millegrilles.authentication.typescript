@@ -108,7 +108,7 @@ function ApplicationList(props: ApplicationListProps) {
                     </button>
                     <blockquote className='text-left h-18 line-clamp-6 sm:line-clamp-3 text-sm'>
                         {connectionInsecure?
-                            <p className='text-lg'>Access to your account from this browser is <span className='font-bold'>not secured properly</span>.</p>
+                            <p className='text-lg'>{t('screens.applicationList.insecureAccount')}</p>
                             :
                             <span></span>
                         }
@@ -300,6 +300,7 @@ export type RenewCertificateProps = {
 
 export function RenewCertificate(props?: RenewCertificateProps) {
 
+    let { t } = useTranslation();
     let buttonOnly = props?.buttonOnly;
     let className = props?.className || '';
     let onSuccess = props?.onSuccess;
@@ -419,12 +420,11 @@ export function RenewCertificate(props?: RenewCertificateProps) {
         <div className='border-t border-l border-r border-slate-500 text-start p-2 w-full'>
             <button onClick={signHandler} className='font-semibold hover:underline' disabled={disabled || !challenge}>
                 <img src={StarIcon} className="inline w-10 mr-1" alt='key icon' />
-                Renew this browser's certificate
+                {t('screens.applicationList.renewCertificate')}
             </button>
             <p>Action required</p>
             <blockquote className='text-left h-18 line-clamp-6 sm:line-clamp-3 text-sm'>
-                This renews the browser's connection. This is regular security check on your
-                account and requires your security device.
+                {t('screens.applicationList.renewCertificateDetail')}
             </blockquote>
         </div>
     );
