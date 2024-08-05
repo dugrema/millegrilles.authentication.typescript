@@ -69,7 +69,8 @@
             "invalidKey": "The key is invalid.",
             "validKey": "The key is valid. Click on renew this browser's certificate and follow the instructions.",
             "passwordPlaceholder": "The password if provided.",
-            "formatIsJson": "Supported format is .json"
+            "formatIsJson": "Supported format is .json",
+            "insecureInstructions1": "This connection must be secured with a security device first."
         }
     }
 }

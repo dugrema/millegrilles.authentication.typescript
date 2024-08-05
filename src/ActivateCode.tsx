@@ -1,12 +1,14 @@
 import { useState, useCallback, useMemo, useEffect, FormEventHandler, Dispatch } from 'react';
 import { FileInput } from 'flowbite-react';
-import useConnectionStore from './connectionStore';
 import useWorkers, { AppWorkers } from './workers/workers';
 import { DelegationChallengeType } from './workers/connection.worker';
 import { certificates, ed25519, forgeCsr, messageStruct } from 'millegrilles.cryptography';
 import { useTranslation } from 'react-i18next';
 import { RenewCertificate } from './ApplicationList';
 import { prepareAuthentication, PrepareAuthenticationResult, signAuthenticationRequest } from './webauthn';
+
+import useConnectionStore from './connectionStore';
+import useUserStore from './connectionStore';
 
 type ActivateCodeProps = {
     back: any,
@@ -17,6 +19,7 @@ function ActivateCode(props: ActivateCodeProps) {
     let { t } = useTranslation();
 
     let username = useConnectionStore(state=>state.username);
+    let connectionInsecure = useUserStore(state=>state.connectionInsecure);
 
     let [uploadKey, setUploadKey] = useState(false);
     let [activationOk, setActivationOk] = useState(false);
@@ -24,6 +27,18 @@ function ActivateCode(props: ActivateCodeProps) {
     let upladKeyButtonHandler = useCallback(()=>setUploadKey(true), [setUploadKey]);
 
     let buttonAnotherHandler = useCallback(()=>setActivationOk(false), [setActivationOk]);
+
+    // Check if the connection is insecure 
+    // Note: should not happen, the Application List should not provide the link to this page in that situation.
+    if(connectionInsecure) return (
+        <div>
+            <p>{t('screens.activateCode.insecureInstructions1')}</p>
+            <button onClick={props.back}
+                    className='btn bg-indigo-800 hover:bg-indigo-600 active:bg-indigo-500'>
+                        {t('buttons.cancel')}
+            </button>
+        </div>
+    )
 
     if(uploadKey) return <UploadKey {...props} />;
 
@@ -207,7 +222,7 @@ function UploadKeyForm(props: UploadKeyFormProps) {
                         {t('buttons.next')}
                 </button>
                 <button onClick={props.back} className='btn bg-slate-700 hover:bg-slate-600 active:bg-slate-500'>
-                        {t('buttons.cancel')}
+                    {t('buttons.cancel')}
                 </button>
             </div>
         </>

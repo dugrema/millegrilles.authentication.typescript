@@ -92,15 +92,17 @@ function ApplicationList(props: ApplicationListProps) {
             <p className='text-3xl font-bold text-slate-400 pb-10'>{t('screens.applicationList.title')}</p>
             <div className='grid grid-cols-1 px-4 md:px-20 lg:px-56 justify-items-center'>
                 
-                <div className='border-t border-l border-r rounded-t-lg border-slate-500 text-start p-2 w-full'>
-                    <button className='font-semibold hover:underline' onClick={sectionChangeHandler} value='ActivateCode'>
-                        <img src={KeyIcon} className="inline w-10 mr-1" alt='key icon' />
-                        {t('screens.applicationList.activateACode')}
-                    </button>
-                    <blockquote className='text-left h-18 line-clamp-6 sm:line-clamp-3 text-sm'>
-                        {t('screens.applicationList.activateACodeDescription')}
-                    </blockquote>
-                </div>
+                {connectionInsecure?<span></span>:
+                    <div className='border-t border-l border-r rounded-t-lg border-slate-500 text-start p-2 w-full'>
+                        <button className='font-semibold hover:underline' onClick={sectionChangeHandler} value='ActivateCode'>
+                            <img src={KeyIcon} className="inline w-10 mr-1" alt='key icon' />
+                            {t('screens.applicationList.activateACode')}
+                        </button>
+                        <blockquote className='text-left h-18 line-clamp-6 sm:line-clamp-3 text-sm'>
+                            {t('screens.applicationList.activateACodeDescription')}
+                        </blockquote>
+                    </div>
+                }
                 
                 <div className='border-t border-l border-r border-slate-500 text-start p-2 w-full'>
                     <button className='font-semibold hover:underline' onClick={sectionChangeHandler} value='AddSecurityDevice'>
