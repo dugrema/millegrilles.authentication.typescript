@@ -5,7 +5,7 @@ import { proxy } from 'comlink';
 import { createCertificateRequest, LanguageSelectbox, prepareRenewalIfDue, userLoginVerification } from './Login';
 import VersionInfo from './VersionInfo';
 import useUserStore from './connectionStore';
-import useWorkers from './workers/workers';
+import useWorkers, { AppWorkers } from './workers/workers';
 import { getUser, updateUser } from './idb/userStoreIdb';
 
 import KeyIcon from './resources/key-svgrepo-com.svg';
@@ -17,7 +17,7 @@ import { useTranslation } from 'react-i18next';
 import cleanup from './idb/cleanup';
 import { MessageResponse, SubscriptionMessage } from './workers/connectionV3';
 import useConnectionStore from './connectionStore';
-import { messageStruct } from 'millegrilles.cryptography';
+import { certificates, messageStruct } from 'millegrilles.cryptography';
 import { prepareAuthentication, PrepareAuthenticationResult, signAuthenticationRequest } from './webauthn';
 
 type ApplicationListProps = {
@@ -179,20 +179,10 @@ function InstalledApplications() {
     useEffect(()=>{
         if(!workers) return;
         workers.connection.getApplicationList()
-            .then(result=>{
+            .then(async result=>{
+                if(!workers) throw new Error("Workers not initialized");
                 if(result.ok) {
-                    // @ts-ignore
-                    let apps = result.resultats as Array<InstalledApplicationType>;
-
-                    // Sort
-                    apps.sort((a, b) => a.name_property.toLocaleLowerCase().localeCompare(b.name_property.toLocaleLowerCase()));
-
-                    // Update names
-                    apps.forEach(app=>{
-                        app.name_property = app.name_property[0].toLocaleUpperCase() + app.name_property.slice(1);
-                        app.name_property = app.name_property.replace(/_/g, ' ');
-                    })
-
+                    let apps = await processApplicationListResult(workers, result);
                     setApps(apps);
                 }
             })
@@ -451,4 +441,32 @@ function CheckActivationStatus() {
     }, [workers, username, setConnectionInsecure]);
 
     return <span></span>;
+}
+
+async function processApplicationListResult(workers: AppWorkers, message: MessageResponse): Promise<Array<InstalledApplicationType>> {
+    // @ts-ignore
+    let apps = message.resultats as Array<InstalledApplicationType>;
+
+    // Read the "serveur" attachement to get the local instance_id from its certificate.
+    // @ts-ignore
+    let serverMessage = message['__original']?.attachements?.serveur as messageStruct.MilleGrillesMessage;
+    let verifiedServerMessage = await workers?.connection?.verifyMessage(serverMessage);
+    // @ts-ignore
+    let certificate = verifiedServerMessage['__certificate'] as certificates.CertificateWrapper;
+    if(!certificate) throw new Error('Invalid "serveur" attachement');
+    let instanceId = certificate.extensions?.commonName;
+
+    // Keep only applications present on the local instance
+    apps = apps.filter(item=>item.instance_id === instanceId);
+
+    // Sort
+    apps.sort((a, b) => a.name_property.toLocaleLowerCase().localeCompare(b.name_property.toLocaleLowerCase()));
+
+    // Update names
+    apps.forEach(app=>{
+        app.name_property = app.name_property[0].toLocaleUpperCase() + app.name_property.slice(1);
+        app.name_property = app.name_property.replace(/_/g, ' ');
+    })
+
+    return apps;
 }

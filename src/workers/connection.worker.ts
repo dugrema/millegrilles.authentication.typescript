@@ -1,5 +1,5 @@
 import { expose } from 'comlink';
-import { forgeCsr } from 'millegrilles.cryptography'
+import { forgeCsr, messageStruct } from 'millegrilles.cryptography'
 import { ConnectionWorker, MessageResponse, SubscriptionCallback, SubscriptionParameters } from './connectionV3';
 
 import '@solana/webcrypto-ed25519-polyfill';
@@ -159,6 +159,11 @@ export class AuthenticationConnectionWorker extends ConnectionWorker {
     async unsubscribe(subscribeEventName: string, callback: SubscriptionCallback, params?: SubscriptionParameters) {
         if(!this.connection) throw new Error("Connection is not initialized");
         return await this.connection.unsubscribe(subscribeEventName, callback, params);
+    }
+
+    async verifyMessage(message: messageStruct.MilleGrillesMessage): Promise<MessageResponse | messageStruct.MilleGrillesMessage> {
+        if(!this.connection) throw new Error("Connection is not initialized");
+        return await this.connection?.verifyResponse(message);
     }
 }
 
