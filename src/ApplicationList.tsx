@@ -169,6 +169,7 @@ type InstalledApplicationType = {
     name_property: string,
     securite: string,
     url: string,
+    supporte_usagers?: boolean,
 }
 
 function InstalledApplications() {
@@ -196,7 +197,7 @@ function InstalledApplications() {
         let icon = adminApp?SetupIcon:ForwardIcon;
         return (
             <div key={''+idx} className='border-t border-l border-r border-slate-500 text-start p-2 w-full'>
-                <a href={app.url} className='font-semibold hover:underline'>
+                <a href={app.url} className='font-semibold hover:underline' rel="noopener noreferrer">
                     <img src={icon} className="inline w-10 mr-1" alt='key icon' />
                     {app.name_property}
                 </a>
@@ -446,6 +447,8 @@ function CheckActivationStatus() {
 }
 
 async function processApplicationListResult(workers: AppWorkers, message: MessageResponse): Promise<Array<InstalledApplicationType>> {
+    const urlLocal = new URL(window.location.href)
+
     // @ts-ignore
     let apps = message.resultats as Array<InstalledApplicationType>;
 
@@ -458,8 +461,12 @@ async function processApplicationListResult(workers: AppWorkers, message: Messag
     if(!certificate) throw new Error('Invalid "serveur" attachement');
     let instanceId = certificate.extensions?.commonName;
 
-    // Keep only applications present on the local instance
-    apps = apps.filter(item=>item.instance_id === instanceId);
+    // Filter out applications that should not be shown
+    apps = apps.filter(item=>{
+        if(item.instance_id !== instanceId) return false;  // Not local
+        if(item.supporte_usagers === false) return false;  // Not meant for users
+        return true
+    });
 
     // Sort
     apps.sort((a, b) => a.name_property.toLocaleLowerCase().localeCompare(b.name_property.toLocaleLowerCase()));
@@ -468,6 +475,17 @@ async function processApplicationListResult(workers: AppWorkers, message: Messag
     apps.forEach(app=>{
         app.name_property = app.name_property[0].toLocaleUpperCase() + app.name_property.slice(1);
         app.name_property = app.name_property.replace(/_/g, ' ');
+
+        // Adapt url to local hostname:port
+        try {
+            let appUrl = new URL(app.url);
+            appUrl.hostname = urlLocal.hostname;
+            appUrl.port = urlLocal.port;
+            app.url = appUrl.href;  // Override app url
+        } catch(err) {
+            console.warn("Error mapping application url %s: %O", app.url, err);
+        }
+
     })
 
     return apps;
