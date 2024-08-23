@@ -103,7 +103,8 @@ export class AuthenticationConnectionWorker extends ConnectionWorker {
 
     async getApplicationList() {
         if(!this.connection) throw new Error("Connection is not initialized");
-        return this.connection.sendRequest({}, 'CoreTopologie', 'listeApplicationsDeployees', {eventName: 'request_application_list'});
+        // return this.connection.sendRequest({}, 'CoreTopologie', 'listeApplicationsDeployees', {eventName: 'request_application_list'});
+        return this.connection.sendRequest({}, 'CoreTopologie', 'listeUserappsDeployees', {eventName: 'request_userapps_list'});
     }
 
     /**

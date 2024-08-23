@@ -1,14 +1,14 @@
 {
   "pubkey": "b0f1885cf526c750dc6db18eae85d8214a5ef6d94d4103785b0b811c618437f9",
-  "estampille": 1722793473,
+  "estampille": 1724446144,
   "kind": 2,
-  "contenu": "{\"commands\":[{\"action\":\"inscrireUsager\"},{\"action\":\"ajouterCsrRecovery\"},{\"action\":\"genererChallenge\"},{\"action\":\"ajouterCle\"},{\"action\":\"signerCompteUsager\"},{\"action\":\"ajouterDelegationSignee\"}],\"defaults\":{\"domain\":\"CoreMaitreDesComptes\",\"exchange\":\"2.prive\"},\"requests\":[{\"action\":\"listeApplicationsDeployees\",\"domain\":\"CoreTopologie\"},{\"action\":\"chargerUsager\",\"exchange\":\"1.public\"},{\"action\":\"getCsrRecoveryParcode\"}],\"subscriptions\":{\"userAccountEvents\":{\"exchanges\":[\"2.prive\"],\"routingKeys\":[\"evenement.CoreMaitreDesComptes.{USER_ID}.majCompteUsager\"]}}}",
+  "contenu": "{\"commands\":[{\"action\":\"inscrireUsager\"},{\"action\":\"ajouterCsrRecovery\"},{\"action\":\"genererChallenge\"},{\"action\":\"ajouterCle\"},{\"action\":\"signerCompteUsager\"},{\"action\":\"ajouterDelegationSignee\"}],\"defaults\":{\"domain\":\"CoreMaitreDesComptes\",\"exchange\":\"2.prive\"},\"requests\":[{\"action\":\"listeApplicationsDeployees\",\"domain\":\"CoreTopologie\"},{\"action\":\"listeUserappsDeployees\",\"domain\":\"CoreTopologie\"},{\"action\":\"chargerUsager\",\"exchange\":\"1.public\"},{\"action\":\"getCsrRecoveryParcode\"}],\"subscriptions\":{\"userAccountEvents\":{\"exchanges\":[\"2.prive\"],\"routingKeys\":[\"evenement.CoreMaitreDesComptes.{USER_ID}.majCompteUsager\"]}}}",
   "routage": {
     "action": "configuration",
     "domaine": "webapi"
   },
-  "id": "9f11a0084c617af4999de083b37964a69c135e3cec309e481f13a167a54b7eb4",
-  "sig": "2e5086f3e107032a4f24b490cf2b88a822b55cd59057880e537b434e9951f864a433d4bc0f09ff36ca5cb6f7ac0aa247ed4c35d493a2ffe325fbb065eddebb0d",
+  "id": "2d7118592114e5e9c4446ee056e8498738b6a83ea9a278858b1c64e4ca7f51f0",
+  "sig": "8384dae883c1eb0a48cf2d1ef5bfbfd40049c0a88d9366aac8d40b1e9dc0640c37294e31d887d013ab1494422dfc38c0416846344568262e73f849d44f86c30c",
   "certificat": [
     "-----BEGIN CERTIFICATE-----\nMIIBqjCCAVygAwIBAgIUerM/X77+89WoWIQ+wkw5mkB5xTowBQYDK2VwMBYxFDAS\nBgNVBAMTC01pbGxlR3JpbGxlMB4XDTI0MDgwMjE3NDEyOFoXDTI0MDkwMjE3NDE0\nOFowazESMBAGA1UEAwwJU2lnbmF0dXJlMRIwEAYDVQQLDAlzaWduYXR1cmUxQTA/\nBgNVBAoMOHplWW5jUnFFcVo2ZVRFbVVaOHdoSkZ1SEc3OTZlU3ZDVFdFNE00MzJp\nelhycDIyYkF0d0dtN0pmMCowBQYDK2VwAyEAsPGIXPUmx1DcbbGOroXYIUpe9tlN\nQQN4WwuBHGGEN/mjZzBlMCMGBCoDBAEEG3NpZ25hdHVyZSxjYXRhbG9ndWVzLHdl\nYmFwaTAfBgNVHSMEGDAWgBTTiP/MFw4DDwXqQ/J2LLYPRUkkETAdBgNVHQ4EFgQU\nUOipJfCK+blx0kFPnpoo7RGtHGgwBQYDK2VwA0EAH9awzWbbhOAzgSg10E97IfVm\nYUXhNI6rEs5lViUQk1Yb3cybTUpqPn1GRtYfbEp02279zVdXm1rzHEgzJehoBA==\n-----END CERTIFICATE-----"
   ],

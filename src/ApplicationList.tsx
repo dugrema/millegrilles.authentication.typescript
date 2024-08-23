@@ -164,19 +164,23 @@ function LanguagePopover() {
 }
 
 type InstalledApplicationType = {
+    name?: string,
+    description?: string,
     application: string,
     instance_id: string,
     name_property: string,
     securite: string,
     url: string,
     supporte_usagers?: boolean,
+    labels?: {[key: string]: {name?:string, description?:string}}
 }
 
 function InstalledApplications() {
 
-    let { t } = useTranslation();
+    let { t, i18n } = useTranslation();
 
     let workers = useWorkers();
+    let language = i18n.language;
     let [apps, setApps] = useState<Array<InstalledApplicationType>>();
 
     useEffect(()=>{
@@ -185,12 +189,13 @@ function InstalledApplications() {
             .then(async result=>{
                 if(!workers) throw new Error("Workers not initialized");
                 if(result.ok) {
-                    let apps = await processApplicationListResult(workers, result);
+                    let apps = await processApplicationListResult(workers, result, language);
+                    console.debug("Apps recues\n%O", apps);
                     setApps(apps);
                 }
             })
             .catch(err=>console.error("Error loading application list", err));
-    }, [workers, setApps]);
+    }, [workers, setApps, language]);
 
     let list = apps?.map((app, idx)=>{
         let adminApp = app.securite === '3.protege';
@@ -199,11 +204,11 @@ function InstalledApplications() {
             <div key={''+idx} className='border-t border-l border-r border-slate-500 text-start p-2 w-full'>
                 <a href={app.url} className='font-semibold hover:underline' rel="noopener noreferrer">
                     <img src={icon} className="inline w-10 mr-1" alt='key icon' />
-                    {app.name_property}
+                    {app.name}
                 </a>
                 {adminApp?<p>{t('screens.applicationList.adminApp')}</p>:<span></span>}
                 <blockquote className='text-left h-18 line-clamp-6 sm:line-clamp-3 text-sm'>
-                    
+                    {app.description}
                 </blockquote>
             </div>
         )
@@ -446,7 +451,7 @@ function CheckActivationStatus() {
     return <span></span>;
 }
 
-async function processApplicationListResult(workers: AppWorkers, message: MessageResponse): Promise<Array<InstalledApplicationType>> {
+async function processApplicationListResult(workers: AppWorkers, message: MessageResponse, language: string): Promise<Array<InstalledApplicationType>> {
     const urlLocal = new URL(window.location.href)
 
     // @ts-ignore
@@ -463,18 +468,25 @@ async function processApplicationListResult(workers: AppWorkers, message: Messag
 
     // Filter out applications that should not be shown
     apps = apps.filter(item=>{
-        if(item.instance_id !== instanceId) return false;  // Not local
-        if(item.supporte_usagers === false) return false;  // Not meant for users
-        return true
-    });
-
-    // Sort
-    apps.sort((a, b) => a.name_property.toLocaleLowerCase().localeCompare(b.name_property.toLocaleLowerCase()));
+            if(item.instance_id !== instanceId) return false;  // Not local
+            if(item.supporte_usagers === false) return false;  // Not meant for users
+            return true
+        });
 
     // Update names
     apps.forEach(app=>{
         app.name_property = app.name_property[0].toLocaleUpperCase() + app.name_property.slice(1);
         app.name_property = app.name_property.replace(/_/g, ' ');
+
+        if(app.labels && app.labels[language]) {
+            let languageLabels = app.labels[language];
+            app.name = languageLabels.name;
+            app.description = languageLabels.description;
+        } else {
+            let name = app.name_property[0].toLocaleUpperCase() + app.name_property.slice(1);
+            name = name.replace(/_/g, ' ');
+            app.name = name;
+        }
 
         // Adapt url to local hostname:port
         try {
@@ -487,6 +499,13 @@ async function processApplicationListResult(workers: AppWorkers, message: Messag
         }
 
     })
+
+    // Sort
+    apps.sort((a, b) => {
+        let valA = a.name || a.name_property;
+        let valB = b.name || b.name_property;
+        return valA.toLocaleLowerCase().localeCompare(valB.toLocaleLowerCase())
+    });
 
     return apps;
 }

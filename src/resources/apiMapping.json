@@ -5,6 +5,7 @@
     },
     "requests": [
         {"domain": "CoreTopologie", "action": "listeApplicationsDeployees"},
+        {"domain": "CoreTopologie", "action": "listeUserappsDeployees"},
         {"action": "chargerUsager", "exchange": "1.public"},
         {"action": "getCsrRecoveryParcode"}
     ],
