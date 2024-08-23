@@ -2,7 +2,7 @@ import {certificates} from "millegrilles.cryptography";
 import { Remote, wrap } from 'comlink';
 
 import { AuthenticationConnectionWorker } from "./connection.worker";
-import { ConnectionCallbackParameters } from "./connectionV3";
+import { ConnectionCallbackParameters } from "millegrilles.reactdeps.typescript";
 
 export type AppWorkers = {
     connection: Remote<AuthenticationConnectionWorker>,

@@ -1,6 +1,7 @@
 import { expose } from 'comlink';
 import { forgeCsr, messageStruct } from 'millegrilles.cryptography'
 import { ConnectionWorker, MessageResponse, SubscriptionCallback, SubscriptionParameters } from './connectionV3';
+// import { ConnectionWorker, MessageResponse, SubscriptionCallback, SubscriptionParameters } from 'millegrilles.reactdeps.typescript'; // TODO
 
 import '@solana/webcrypto-ed25519-polyfill';
 import apiMapping from '../resources/apiMapping.json';

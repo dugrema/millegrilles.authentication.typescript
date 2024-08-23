@@ -1,7 +1,7 @@
 import { useMemo, useEffect } from "react";
 import { proxy } from "comlink";
 
-import { ConnectionCallbackParameters } from "./connectionV3";
+import { ConnectionCallbackParameters } from "millegrilles.reactdeps.typescript";
 import useWorkers, { AppWorkers, initWorkers, InitWorkersResult } from "./workers";
 import useConnectionStore from "../connectionStore";
 

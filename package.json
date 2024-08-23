@@ -1,6 +1,6 @@
 {
   "name": "millegrilles.authentication.typescript",
-  "version": "0.1.0",
+  "version": "2024.6.0",
   "private": true,
   "dependencies": {
     "@peculiar/x509": "github:dugrema/peculiar_x509",
@@ -21,6 +21,7 @@
     "i18next-http-backend": "^2.5.2",
     "json-stable-stringify": "^1.1.1",
     "millegrilles.cryptography": "github:dugrema/millegrilles.cryptography.ts",
+    "millegrilles.reactdeps.typescript": "github:dugrema/millegrilles.reactdeps.typescript",
     "moment": "^2.30.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 import { proxy } from 'comlink';
 import { messageStruct } from "millegrilles.cryptography";
 
-import { MessageResponse, SubscriptionMessage } from "./workers/connectionV3";
+// import { MessageResponse, SubscriptionMessage } from "./workers/";
+import { MessageResponse, SubscriptionMessage } from "millegrilles.reactdeps.typescript";
 import useWorkers from "./workers/workers";
 import useConnectionStore from "./connectionStore";
 import useAuthenticationStore from "./authenticationStore";

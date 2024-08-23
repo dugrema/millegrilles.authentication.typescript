@@ -15,7 +15,8 @@ import ForwardIcon from './resources/forward-svgrepo-com.svg';
 import SetupIcon from './resources/set-up-svgrepo-com.svg';
 import { useTranslation } from 'react-i18next';
 import cleanup from './idb/cleanup';
-import { MessageResponse, SubscriptionMessage } from './workers/connectionV3';
+// import { MessageResponse, SubscriptionMessage } from './workers/';
+import { MessageResponse, SubscriptionMessage } from 'millegrilles.reactdeps.typescript';
 import useConnectionStore from './connectionStore';
 import { certificates, messageStruct } from 'millegrilles.cryptography';
 import { prepareAuthentication, PrepareAuthenticationResult, signAuthenticationRequest } from './webauthn';
@@ -190,7 +191,6 @@ function InstalledApplications() {
                 if(!workers) throw new Error("Workers not initialized");
                 if(result.ok) {
                     let apps = await processApplicationListResult(workers, result, language);
-                    console.debug("Apps recues\n%O", apps);
                     setApps(apps);
                 }
             })
