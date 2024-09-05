@@ -179,9 +179,9 @@ type InstalledApplicationType = {
 function InstalledApplications() {
 
     let { t, i18n } = useTranslation();
+    let languages = i18n.languages;
 
     let workers = useWorkers();
-    let language = i18n.language;
     let [apps, setApps] = useState<Array<InstalledApplicationType>>();
 
     useEffect(()=>{
@@ -190,12 +190,12 @@ function InstalledApplications() {
             .then(async result=>{
                 if(!workers) throw new Error("Workers not initialized");
                 if(result.ok) {
-                    let apps = await processApplicationListResult(workers, result, language);
+                    let apps = await processApplicationListResult(workers, result, languages);
                     setApps(apps);
                 }
             })
             .catch(err=>console.error("Error loading application list", err));
-    }, [workers, setApps, language]);
+    }, [workers, setApps, languages]);
 
     let list = apps?.map((app, idx)=>{
         let adminApp = app.securite === '3.protege';
@@ -451,7 +451,7 @@ function CheckActivationStatus() {
     return <span></span>;
 }
 
-async function processApplicationListResult(workers: AppWorkers, message: MessageResponse, language: string): Promise<Array<InstalledApplicationType>> {
+async function processApplicationListResult(workers: AppWorkers, message: MessageResponse, languages: readonly string[]): Promise<Array<InstalledApplicationType>> {
     const urlLocal = new URL(window.location.href)
 
     // @ts-ignore
@@ -478,16 +478,21 @@ async function processApplicationListResult(workers: AppWorkers, message: Messag
         app.name_property = app.name_property[0].toLocaleUpperCase() + app.name_property.slice(1);
         app.name_property = app.name_property.replace(/_/g, ' ');
 
-        if(app.labels && app.labels[language]) {
-            let languageLabels = app.labels[language];
-            app.name = languageLabels.name;
-            app.description = languageLabels.description;
-        } else {
-            let name = app.name_property[0].toLocaleUpperCase() + app.name_property.slice(1);
-            name = name.replace(/_/g, ' ');
-            app.name = name;
-        }
+        // Default
+        let name = app.name_property[0].toLocaleUpperCase() + app.name_property.slice(1);
+        name = name.replace(/_/g, ' ');
+        app.name = name;
 
+        // Override default if labels found
+        for(let language of languages) {
+            if(app.labels && app.labels[language]) {
+                let languageLabels = app.labels[language];
+                app.name = languageLabels.name;
+                app.description = languageLabels.description;
+                break;
+            }
+        }
+        
         // Adapt url to local hostname:port
         try {
             let appUrl = new URL(app.url);

@@ -1,6 +1,6 @@
 {
   "name": "millegrilles.authentication.typescript",
-  "version": "2024.6.0",
+  "version": "2024.6.1",
   "private": true,
   "dependencies": {
     "@peculiar/x509": "github:dugrema/peculiar_x509",
@@ -73,6 +73,6 @@
       "last 1 safari version"
     ]
   },
-  "proxy": "https://localhost:4001",
+  "proxy": "https://localhost:443",
   "homepage": "/millegrilles"
 }
