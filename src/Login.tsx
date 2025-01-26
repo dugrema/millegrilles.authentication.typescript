@@ -13,6 +13,7 @@ import { clearCertificate, getUser, getUsersList, receiveCertificate, updateUser
 import { AuthenticationChallengePublicKeyType, AuthenticationChallengeType } from './workers/connection.worker';
 import { prepareAuthentication, PrepareAuthenticationResult, signAuthenticationRequest } from './webauthn';
 import RecoveryScreen from './RecoveryScreen';
+import ActionButton from './ActionButton';
 
 function Login() {
 
@@ -38,14 +39,12 @@ function Login() {
     let [error, setError] = useState('');
     let [mainOpacity, setMainOpacity] = useState('opacity-100');
     let [register, setRegister] = useState(false);
-    let [webauthnChallenge, setWebauthnChallenge] = useState<PrepareAuthenticationResult>();
+    let [webauthnChallenge, setWebauthnChallenge] = useState(null as PrepareAuthenticationResult | null);
     let [webauthnReady, setWebauthnReady] = useState(false);
     let [notAvailable, setNotAvailable] = useState(false);
+    let [unknownUser, setUnknownUser] = useState(false);
 
-    let handleLogin = useCallback((e: React.FormEvent<HTMLInputElement|HTMLFormElement> | null)=>{
-        e?.preventDefault();
-        e?.stopPropagation();
-
+    let handleLogin = useCallback(async ()=>{
         if(!workers) {
             setError('There is an error with the connection');
             return;
@@ -68,29 +67,27 @@ function Login() {
         // console.debug("URL: %O, returnTo: %O", url, returnTo);
 
         if(webauthnChallenge) {
-            // Immediately sign the challenge - allows for 1-pass on iOS
-            authenticateHttpSession(workers, username, webauthnChallenge.demandeCertificat, webauthnChallenge.publicKey, sessionDuration)
-                .then(async () => {
-                    if(returnTo) {
-                        url.pathname = returnTo;
-                        url.searchParams.delete("returnTo");
-                        window.location.replace(url.href);
-                        return;
-                    }
+            try {
+                // Immediately sign the challenge - allows for 1-pass on iOS
+                await authenticateHttpSession(workers, username, webauthnChallenge.demandeCertificat, webauthnChallenge.publicKey, sessionDuration)
+                if(returnTo) {
+                    url.pathname = returnTo;
+                    url.searchParams.delete("returnTo");
+                    window.location.replace(url.href);
+                    return;
+                }
 
-                    setUsernameStore(username);
-                    setMustManuallyAuthenticate(false);
-                    setConnectionAuthenticated(true);
+                setUsernameStore(username);
+                setMustManuallyAuthenticate(false);
+                setConnectionAuthenticated(true);
 
-                    // Persist information for next time the screen is loaded
-                    setUsernamePersist(username);
-                    setSessionDurationPersist(sessionDuration);
-                })
-                .catch(err=>{
-                    console.error("Error logging in ", err);
-                    setRecoveryScreen(true);
-                });
-            return;
+                // Persist information for next time the screen is loaded
+                setUsernamePersist(username);
+                setSessionDurationPersist(sessionDuration);
+            } catch(err) {
+                console.error("Error logging in ", err);
+                setRecoveryScreen(true);
+            }
         }
 
         // Normal login process when the webauthn challenge is not provided up front.
@@ -166,22 +163,25 @@ function Login() {
 
         let timeout = setTimeout(async () => {
             let userInfo = await userLoginVerification(username);
+            console.debug("User info", userInfo);
+
             let webauthnChallenge = userInfo?.authentication_challenge;
             if(!userInfo) {
                 // Unknown user
+                setUnknownUser(true);
                 setWebauthnReady(false);
-                setWebauthnChallenge(undefined);
+                setWebauthnChallenge(null);
             } else if(userInfo.methodesDisponibles?.activation && userInfo.challenge_certificat) {
                 // Deactivate webauthn, we just got permission to login without security
                 setWebauthnReady(false);
-                setWebauthnChallenge(undefined);
+                setWebauthnChallenge(null);
                 setConnectionInsecure(true);  // Flag that indicates a connection that doesn't require security devices
             } else if(webauthnChallenge) {
                 // Check if the user exists locally and verify if certificate should be renewed.
                 await prepareSignatureHandler(webauthnChallenge);
                 setWebauthnReady(true);
             } else {
-                setWebauthnChallenge(undefined);
+                setWebauthnChallenge(null);
                 setWebauthnReady(false);
                 if(!userInfo?.challenge_certificat) {
                     // There are no recognized methods to log in from this browser.
@@ -190,7 +190,7 @@ function Login() {
             }
         }, 400);
         return () => clearTimeout(timeout);
-    }, [workers, username, setWebauthnReady, setWebauthnChallenge, setConnectionInsecure, setNotAvailable, prepareSignatureHandler])
+    }, [workers, username, setWebauthnReady, setWebauthnChallenge, setConnectionInsecure, setNotAvailable, prepareSignatureHandler, setUnknownUser])
 
     // Timer to renew the webauthn challenge regularly to avoid stale requests if the user is
     // away from the screen.
@@ -206,19 +206,22 @@ function Login() {
         }, 57_000);
 
         return () => clearTimeout(timeout);
-    }, [workers, username, webauthnChallenge, setWebauthnChallenge, prepareSignatureHandler])
+    }, [workers, username, webauthnChallenge, setWebauthnChallenge, prepareSignatureHandler, setUnknownUser])
 
     let usernameOnChangeHandler = useCallback((e: React.FormEvent<HTMLInputElement>) => {
         setError('');
         setUsername(e.currentTarget.value);
-    }, [setUsername, setError]);
+        // Reset flags to deactivate the Next button
+        setWebauthnChallenge(null);
+        setUnknownUser(false);
+    }, [setUsername, setError, setWebauthnChallenge, setUnknownUser]);
 
     let closeRegister = useCallback(()=>{
         setRegister(false);
     }, [setRegister]);
 
     let closeWebauthnScreen = useCallback(()=>{
-        setWebauthnChallenge(undefined);
+        setWebauthnChallenge(null);
     }, [setWebauthnChallenge]);
 
     let closeRecoveryScreen = useCallback(()=>{
@@ -248,6 +251,7 @@ function Login() {
     } else {
         pageContent = (
             <UserInputScreen username={username} usernameOnChange={usernameOnChangeHandler} handleLogin={handleLogin} 
+                disabled={!webauthnChallenge && !unknownUser}
                 duration={sessionDuration} setDuration={setSessionDurationHandler} />
         );
     }
@@ -269,9 +273,10 @@ export default Login;
 type UserInputScreenProps = {
     username: string,
     usernameOnChange(e: React.FormEvent<HTMLInputElement|HTMLFormElement>): void,
-    handleLogin(e: React.FormEvent<HTMLInputElement|HTMLFormElement>): void,
+    handleLogin: ()=>Promise<void>,
     duration: number,
     setDuration(e: React.ChangeEvent<HTMLSelectElement>): void,
+    disabled: boolean
 };
 
 function UserInputScreen(props: UserInputScreenProps) {
@@ -283,7 +288,7 @@ function UserInputScreen(props: UserInputScreenProps) {
                 <DurationSelectbox duration={props.duration} setDuration={props.setDuration} />
                 
                 <div className='grid grid-cols-1 min-w-full col-span-3 justify-items-center mt-10'>
-                    <Buttons handleLogin={props.handleLogin} />
+                    <Buttons handleLogin={props.handleLogin} disabled={props.disabled} />
                 </div>
             </div>
         </form>
@@ -291,7 +296,8 @@ function UserInputScreen(props: UserInputScreenProps) {
 }
 
 type ButtonsProps = {
-    handleLogin: any
+    handleLogin: ()=>Promise<void>,
+    disabled: boolean,
 };
 
 function Buttons(props: ButtonsProps) {
@@ -305,10 +311,9 @@ function Buttons(props: ButtonsProps) {
 
     return (
         <>
-            <button onClick={props.handleLogin} disabled={!connectionReady} title={notReady}
-                className='btn bg-indigo-800 hover:bg-indigo-600 active:bg-indigo-500' >
-                    {t('buttons.next')}
-            </button>
+            <ActionButton onClick={props.handleLogin} disabled={props.disabled || !connectionReady} mainButton={true}>
+                {t('buttons.next')}
+            </ActionButton>
         </>
     )
 }
@@ -400,7 +405,6 @@ function WebauthnChallengeScreen(props: WebauthnChallengeScreenProps) {
     let setUsernamePersist = useAuthenticationStore( state => state.setUsername );
     let setSessionDurationPersist = useAuthenticationStore( state => state.setSessionDuration );
     
-    
     let loginHandler = useCallback(()=>{
         if(!workers) throw new Error("Workers not initialized");
         authenticateHttpSession(workers, username, webauthnChallenge.demandeCertificat, webauthnChallenge.publicKey, sessionDuration)
@@ -423,11 +427,11 @@ function WebauthnChallengeScreen(props: WebauthnChallengeScreenProps) {
             </p>
 
             <div className='flex min-w-full col-span-3 justify-center mt-10'>
-                <button onClick={loginHandler} 
+                <button onClick={loginHandler} disabled={!webauthnChallenge}
                     className='btn bg-indigo-800 hover:bg-indigo-600 active:bg-indigo-500'>
                         {t('buttons.next')}
                 </button>
-                <button onClick={props.back}
+                <button onClick={props.back} 
                     className='btn bg-slate-700 hover:bg-slate-600 active:bg-slate-500' >
                         {t('buttons.cancel')}
                 </button>
