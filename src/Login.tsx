@@ -18,6 +18,7 @@ function Login() {
 
     let { t } = useTranslation();
     let workers = useWorkers();
+
     let setUsernameStore = useConnectionStore(state=>state.setUsername);
     let setMustManuallyAuthenticate = useConnectionStore((state) => state.setMustManuallyAuthenticate);
     let setConnectionAuthenticated = useConnectionStore((state) => state.setConnectionAuthenticated);
@@ -61,10 +62,22 @@ function Login() {
             return;
         }
 
+        // Handle auto-login redirect after a session timeout or access via bookmarks
+        let url = new URL(window.location.href);
+        let returnTo = url.searchParams.get('returnTo');
+        console.debug("URL: %O, returnTo: %O", url, returnTo);
+
         if(webauthnChallenge) {
             // Immediately sign the challenge - allows for 1-pass on iOS
             authenticateHttpSession(workers, username, webauthnChallenge.demandeCertificat, webauthnChallenge.publicKey, sessionDuration)
                 .then(async () => {
+                    if(returnTo) {
+                        url.pathname = returnTo;
+                        url.searchParams.delete("returnTo");
+                        window.location.replace(url.href);
+                        return;
+                    }
+
                     setUsernameStore(username);
                     setMustManuallyAuthenticate(false);
                     setConnectionAuthenticated(true);
