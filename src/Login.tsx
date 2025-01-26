@@ -65,7 +65,7 @@ function Login() {
         // Handle auto-login redirect after a session timeout or access via bookmarks
         let url = new URL(window.location.href);
         let returnTo = url.searchParams.get('returnTo');
-        console.debug("URL: %O, returnTo: %O", url, returnTo);
+        // console.debug("URL: %O, returnTo: %O", url, returnTo);
 
         if(webauthnChallenge) {
             // Immediately sign the challenge - allows for 1-pass on iOS
