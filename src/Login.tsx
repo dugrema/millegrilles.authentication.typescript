@@ -55,8 +55,8 @@ function Login() {
             return;
         }
 
-        if(notAvailable) {
-            // There are no authentication methods availble for this browser.
+        if(!unknownUser && notAvailable) {
+            // User exists and there are no authentication methods available for this browser.
             setRecoveryScreen(true);
             return;
         }
@@ -127,7 +127,7 @@ function Login() {
                 console.error("userLoginVerification error", err)
             });
         
-    }, [workers, username, setMainOpacity, setUsernameStore, setRegister, setRecoveryScreen, webauthnChallenge, sessionDuration, setUsernamePersist, setSessionDurationPersist, setConnectionAuthenticated, setMustManuallyAuthenticate, notAvailable]);
+    }, [workers, username, setMainOpacity, setUsernameStore, setRegister, setRecoveryScreen, webauthnChallenge, sessionDuration, setUsernamePersist, setSessionDurationPersist, setConnectionAuthenticated, setMustManuallyAuthenticate, notAvailable, unknownUser]);
 
     let prepareSignatureHandler = useCallback(async (webauthnChallenge: AuthenticationChallengeType)=>{
         // Check if the user exists locally and verify if certificate should be renewed.
