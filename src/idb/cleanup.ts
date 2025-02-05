@@ -33,7 +33,7 @@ export default async function cleanup(username: string) {
             }
         }
 
-        // Supprimer databases
+        // Delete databases
         const promisesDelete = []
         for (const databaseName of databases) {
             if(databaseName === 'millegrilles') continue  // Skip DB millegrilles

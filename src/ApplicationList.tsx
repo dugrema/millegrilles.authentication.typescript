@@ -49,8 +49,11 @@ function ApplicationList(props: ApplicationListProps) {
     let {logout, setPage} = props;
 
     let logoutClickHandler = useCallback((e: any)=>{
+        let timeout = setTimeout(()=>logout(e), 300);  // In case of issue with the cleanup (finally doesn't get called).
         cleanup(username)
+            .catch(err=>console.error("Error cleaning up before logout", err))
             .finally(()=>{
+                clearTimeout(timeout);
                 logout(e);
             });
     }, [username, logout]);
