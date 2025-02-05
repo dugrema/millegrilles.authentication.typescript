@@ -41,7 +41,7 @@ function Login() {
     let [register, setRegister] = useState(false);
     let [webauthnChallenge, setWebauthnChallenge] = useState(null as PrepareAuthenticationResult | null);
     let [webauthnReady, setWebauthnReady] = useState(false);
-    let [notAvailable, setNotAvailable] = useState(false);
+    let [notAvailable, setNotAvailable] = useState(null as boolean | null);
     let [unknownUser, setUnknownUser] = useState(false);
 
     let handleLogin = useCallback(async ()=>{
@@ -159,7 +159,7 @@ function Login() {
 
     // Pre-emptive loading of user authentication information
     useEffect(()=>{
-        setNotAvailable(false);  // Reset
+        setNotAvailable(null);  // Reset
 
         let timeout = setTimeout(async () => {
             let userInfo = await userLoginVerification(username);
@@ -171,15 +171,18 @@ function Login() {
                 setUnknownUser(true);
                 setWebauthnReady(false);
                 setWebauthnChallenge(null);
+                setNotAvailable(true);
             } else if(userInfo.methodesDisponibles?.activation && userInfo.challenge_certificat) {
                 // Deactivate webauthn, we just got permission to login without security
                 setWebauthnReady(false);
                 setWebauthnChallenge(null);
                 setConnectionInsecure(true);  // Flag that indicates a connection that doesn't require security devices
+                setNotAvailable(false);
             } else if(webauthnChallenge) {
                 // Check if the user exists locally and verify if certificate should be renewed.
                 await prepareSignatureHandler(webauthnChallenge);
                 setWebauthnReady(true);
+                setNotAvailable(false);
             } else {
                 setWebauthnChallenge(null);
                 setWebauthnReady(false);
@@ -251,7 +254,7 @@ function Login() {
     } else {
         pageContent = (
             <UserInputScreen username={username} usernameOnChange={usernameOnChangeHandler} handleLogin={handleLogin} 
-                disabled={!webauthnChallenge && !unknownUser}
+                disabled={notAvailable === null}
                 duration={sessionDuration} setDuration={setSessionDurationHandler} />
         );
     }
