@@ -27,7 +27,7 @@ function AddSecurityDevice(props: AddSecurityDeviceProps) {
                 <p className='text-3xl font-bold text-slate-400 pb-10'>{t('screens.applicationList.addSecurityDevice')}</p>
                 <p>This is for your {username} account.</p>
 
-                <div className='MessageBox min-w-80 border-4 border-slate-500 shadow-2xl rounded-xl p-8 bg-slate-900 text-slate-300 text-start space-y-4'>
+                <div className='MessageBox min-w-80 mx-2 border-4 border-slate-500 shadow-2xl rounded-xl p-8 bg-slate-900 text-slate-300 text-start space-y-4'>
                     {pageContent}
                 </div>
 
@@ -106,7 +106,7 @@ function AddDeviceContent(props: AddDeviceContentType) {
                 <label htmlFor='deactivate-other-keys' className='col-span-2'>Also remove <span className='font-semibold'>all other</span> security devices for this account.</label>
             </div>
 
-            <div className='h-8 justify-items-center w-96'>
+            <div className='h-8 justify-items-center max-w-96'>
                 {failed?
                     <p>An error occurred, the device was not added. You may try again later.</p>
                     :
@@ -141,7 +141,7 @@ function AddDeviceConfirmation(props: AddDeviceContentType) {
 
     return (
         <>
-            <p className="w-96">
+            <p className="max-w-96">
                 The security device was added successfully.
                 {props.deactivateOtherKeys?<span> All other security devices were removed.</span>:<span></span>}
             </p>

@@ -285,7 +285,7 @@ type UserInputScreenProps = {
 function UserInputScreen(props: UserInputScreenProps) {
     return (
         <form>
-            <div className='MessageBox grid grid-cols-3 min-w-80 max-w-lg border-4 border-slate-500 shadow-2xl rounded-xl p-8 bg-slate-900 text-slate-300 justify-items-end'>
+            <div className='MessageBox grid grid-cols-1 md:grid-cols-3 mx-2 min-w-80 max-w-lg border-4 border-slate-500 shadow-2xl rounded-xl p-8 bg-slate-900 text-slate-300 justify-items-end'>
                 <UserSelection username={props.username} usernameOnChangeHandler={props.usernameOnChange} />
                 <LanguageSelectbox />
                 <DurationSelectbox duration={props.duration} setDuration={props.setDuration} />
@@ -366,7 +366,7 @@ function UserRegistrationScreen(props: UserRegistrationScreenProps) {
 
     return (
         <form onSubmit={handleRegistration}>
-            <div className='MessageBox grid grid-cols-3 min-w-80 max-w-lg border-4 border-slate-500 shadow-2xl rounded-xl p-8 bg-slate-900 text-slate-300 justify-items-end'>
+            <div className='MessageBox grid grid-cols-3 mx-2 min-w-80 max-w-lg border-4 border-slate-500 shadow-2xl rounded-xl p-8 bg-slate-900 text-slate-300 justify-items-end'>
 
                 <p className='col-span-3 text-left min-w-full'>{t('screens.registration.instructions1', {username})}</p>
 
@@ -422,7 +422,7 @@ function WebauthnChallengeScreen(props: WebauthnChallengeScreenProps) {
     }, [workers, username, webauthnChallenge, sessionDuration, setUsernamePersist, setSessionDurationPersist, setConnectionAuthenticated, setMustManuallyAuthenticate]);
 
     return (
-        <div className='MessageBox grid grid-cols-3 min-w-80 max-w-lg border-4 border-slate-500 shadow-2xl rounded-xl p-8 bg-slate-900 text-slate-300 justify-items-end'>
+        <div className='MessageBox grid grid-cols-3 mx-2 min-w-80 max-w-lg border-4 border-slate-500 shadow-2xl rounded-xl p-8 bg-slate-900 text-slate-300 justify-items-end'>
 
             <p className='col-span-3 text-left'>
                 The user account {props.username} is protected by security devices. 
@@ -546,7 +546,7 @@ function Message(props: MessageProps) {
     }, [props.error]);
 
     return (
-        <div className={'MessageBox h-32 min-w-80 max-w-lg border-4 border-slate-500 shadow-xl rounded-xl p-8 bg-slate-900 text-slate-300 mt-5 ' + opacity}>
+        <div className={'MessageBox h-32 mx-2 min-w-80 max-w-lg border-4 border-slate-500 shadow-xl rounded-xl p-8 bg-slate-900 text-slate-300 mt-5 ' + opacity}>
             <p>{props.error}</p>
         </div>
     );

@@ -112,7 +112,7 @@ export default function RecoveryScreen(props: RecoveryScreenProps) {
     }, [workers, username, setPublicKey, setActivationCode])
 
     return (
-        <div className='MessageBox grid grid-cols-3 min-w-80 max-w-lg border-4 border-slate-500 shadow-2xl rounded-xl p-8 bg-slate-900 text-slate-300 justify-items-end'>
+        <div className='MessageBox grid grid-cols-3 mx-2 min-w-80 max-w-lg border-4 border-slate-500 shadow-2xl rounded-xl p-8 bg-slate-900 text-slate-300 justify-items-end'>
 
             <p className='col-span-3 text-left mb-4 min-w-full'>{t('screens.recovery.instructions1', {username})}</p>
             <p className='col-span-3 text-left mb-4 min-w-full'>{t('screens.recovery.instructions2')}</p>

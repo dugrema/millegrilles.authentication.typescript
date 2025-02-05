@@ -4,6 +4,6 @@
 
 @layer components {
     .btn {
-        @apply transition ease-in-out min-w-40 rounded font-bold disabled:bg-slate-900 disabled:text-slate-600 disabled:ring-offset-0 disabled:ring-0 hover:ring-offset-1 hover:ring-1 p-1 m-1 cursor-pointer;
+        @apply transition ease-in-out min-w-32 rounded font-bold disabled:bg-slate-900 disabled:text-slate-600 disabled:ring-offset-0 disabled:ring-0 hover:ring-offset-1 hover:ring-1 p-1 m-1 cursor-pointer;
     }
 }
