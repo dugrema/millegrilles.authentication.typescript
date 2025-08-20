@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback, Dispatch } from 'react';
+import { useState, useEffect, useCallback, Dispatch, ChangeEvent } from 'react';
 import useUserStore from './connectionStore';
 import useWorkers, { AppWorkers } from './workers/workers';
 import { multiencoding } from 'millegrilles.cryptography';
-import { RegistrationChallengeType } from './workers/connection.worker';
+import { RegistrationChallengeType, TotpSecretType } from './workers/connection.worker';
 import { getUser } from './idb/userStoreIdb';
 import { useTranslation } from 'react-i18next';
 
@@ -56,15 +56,20 @@ function AddDeviceContent(props: AddDeviceContentType) {
     let setConnectionInsecure = useUserStore(state=>state.setConnectionInsecure);
 
     let [challenge, setChallenge] = useState<RegistrationChallengeType>();
+    const [totpCode, setTotpCode] = useState('');
+    const [totpQrBase64, setTotpQrBase64] = useState('');
+    const [totpCorrelation, setTotpCorrelation] = useState('');
     let [disabled, setDisabled] = useState(false);
     let [failed, setFailed] = useState(false);
+
+    const totpCodeOnChange = useCallback((e: ChangeEvent<HTMLInputElement>)=>{setTotpCode(e.currentTarget.value)}, [setTotpCode]);
 
     let deactivateOtherKeysHandler = useCallback((e: React.FormEvent<HTMLInputElement>)=>{
         setDeactivateOtherKeys(!!e.currentTarget.checked);
     }, [setDeactivateOtherKeys]);
 
     let signChallenge = useCallback(()=>{
-        if(!workers || !challenge) return;
+        if(!workers || (!challenge && !totpCode)) return;
 
         setDisabled(true);
         setFailed(false);
@@ -73,7 +78,15 @@ function AddDeviceContent(props: AddDeviceContentType) {
                 let publicKey = userIdb?.certificate?.publicKeyString;
                 if(!publicKey) throw new Error("Error loading public key for user");
                 if(!workers) throw new Error("Workers not ready");
-                await addMethod(workers, username, publicKey, challenge, deactivateOtherKeys);
+                
+                if(totpCode && totpCorrelation) {
+                    // Add using authenticator code
+                    await registerTotpCode(workers, totpCode, totpCorrelation);
+                } else {
+                    // Add new webauthn credential
+                    await addMethod(workers, username, publicKey, challenge, deactivateOtherKeys);
+                }
+
                 setConfirm(true);
                 setConnectionInsecure(false);  // Ensure the flag is removed
             })
@@ -83,17 +96,27 @@ function AddDeviceContent(props: AddDeviceContentType) {
                 // setResultat('echec')
                 // erreurCb(err, 'Erreur ajouter methode')
             })
-            .finally(()=>setDisabled(false));
-    }, [workers, username, challenge, deactivateOtherKeys, setDisabled, setFailed, setConfirm, setConnectionInsecure]) as React.MouseEventHandler<HTMLInputElement|HTMLButtonElement>;
+            .finally(()=>{
+                setDisabled(false);
+                setTotpCode('');  // Reset TOTP code
+            });
+    }, [workers, username, challenge, deactivateOtherKeys, totpCode, totpCorrelation, setDisabled, setFailed, setConfirm, setConnectionInsecure, setTotpCode]) as React.MouseEventHandler<HTMLInputElement|HTMLButtonElement>;
 
     useEffect(()=>{
         if(!workers) return;
+        getNewTotpChallenge(workers, username)
+            .then(response=>{
+                // console.debug("Response", response);
+                setTotpQrBase64('data:image/jpeg;base64,' + response.qr_base64);
+                setTotpCorrelation(response.correlation);
+            })
+            .catch(err=>console.error("Error getting a new TOTP secret", err));
         getNewDeviceChallenge(workers)
             .then(result => {
                 setChallenge(result);
             })
             .catch(err=>console.error("Error generating webauth challenge", err));
-    }, [workers, setChallenge]);
+    }, [workers, setTotpQrBase64, setTotpCorrelation]);
 
     return (
         <>
@@ -105,12 +128,22 @@ function AddDeviceContent(props: AddDeviceContentType) {
                     />
                 <label htmlFor='deactivate-other-keys' className='col-span-2'>Also remove <span className='font-semibold'>all other</span> security devices for this account.</label>
             </div>
-
-            <div className='h-8 justify-items-center max-w-96'>
+            
+            <div className='h-30 justify-items-center max-w-96'>
                 {failed?
                     <p>An error occurred, the device was not added. You may try again later.</p>
                     :
-                    <p>Click on {t('buttons.next')} to proceed.</p>
+                    <>
+                        <p>Click on {t('buttons.next')} to add a new security key (USB, NFC, Mobile, etc.).</p>
+                        <p className='pt-2 h-10 text-center'>OR</p>
+                        <p>Use this QR code with your Authenticator App and enter the displayed 6 digit value. Then click on {t('buttons.next')}.</p>
+                        <div className='grid grid-cols-2 pt-2'>
+                            <img className='col-span-2' src={totpQrBase64} alt='Authenticator QR Code' />
+                            <label htmlFor="totp-code">Authenticator App Code</label>
+                            <input id="totp-code" placeholder='Ex.: 123456' value={totpCode} onChange={totpCodeOnChange} />
+                            <p className='col-span-2 text-sm'>Leave empty to add security key (e.g. USB, NFC, Mobile).</p>
+                        </div>
+                    </>
                 }
             </div>
 
@@ -175,6 +208,12 @@ async function getNewDeviceChallenge(workers: AppWorkers): Promise<RegistrationC
     return challenge;
 }
 
+async function getNewTotpChallenge(workers: AppWorkers, username: string): Promise<TotpSecretType> {
+    const hostname = window.location.hostname;
+    const response = await workers.connection.generateNewTotp({hostname, username}) as TotpSecretType;
+    return response;
+}
+
 async function addMethod(workers: AppWorkers, username: string, publicKey: string, challenge: any, resetMethods: boolean) {
     // NB : Pour que l'enregistrement avec iOS fonctionne bien, il faut que la
     //      thread de l'evenement soit la meme que celle qui declenche
@@ -236,4 +275,12 @@ async function respondRegistrationChallenge(username: string, challengeWebauthn:
     };
   
     return data;
+}
+
+async function registerTotpCode(workers: AppWorkers, code: string, correlation: string) {
+    const hostname = window.location.hostname;
+    const command = {code, correlation, hostname};
+    const response = await workers.connection.registerNewTotp(command);
+    console.debug("Generate new TOTP response", response);
+    if(!response.ok) throw new Error(`Error registering the new TOTP code: ${response.err}`);
 }

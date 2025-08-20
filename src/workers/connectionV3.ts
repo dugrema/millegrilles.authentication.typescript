@@ -340,7 +340,10 @@ export default class ConnectionSocketio {
             let content = response as any;
             if(response.kind === 6) {
                 // console.info("Reponse chiffree %O", reponse)
-                throw new Error('todo - decrypt message');
+                if(!this.messageFactory) throw new Error("Encrypted message - message factory not initialized, unable to decrypt");
+                const contenuParsed = await this.messageFactory.decryptMessage(content);
+                content = {...content, ...contenuParsed};
+                // throw new Error('todo - decrypt message');
                 // const contenuParsed = await dechiffrerMessage(response);
                 // content = contenuParsed;
                 // content['__original'] = response;
@@ -578,6 +581,18 @@ class MessageFactory {
 
     async createResponse(content: Object, timestamp?: Date) {
         return await messageStruct.createResponse(this.signingKey, content, timestamp);
+    }
+
+        /**
+     * Decrypt a message with the currently loaded certificate.
+     * @param message Message to decrypt. Must match the private key currently used.
+     * @returns Decrypted content
+     */
+    async decryptMessage(message: messageStruct.MilleGrillesMessage): Promise<Object> {
+        if(!message.dechiffrage) throw new Error("Wrong message type");
+        // Put getContent back in message
+        Object.setPrototypeOf(message, messageStruct.MilleGrillesMessage.prototype);
+        return await message.getContent(this.signingKey);
     }
 }
 

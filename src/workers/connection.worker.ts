@@ -37,6 +37,12 @@ export type WebauthChallengeResponse = {
     registration_challenge?: RegistrationChallengeType,
 };
 
+export type TotpSecretType = {
+    correlation: string,
+    qr_base64: string,
+};
+
+
 type AddAdministratorRoleResponse = MessageResponse & {
     nomUsager?: string,
     userId?: string,
@@ -99,6 +105,28 @@ export class AuthenticationConnectionWorker extends ConnectionWorker {
             command, 'CoreMaitreDesComptes', 'genererChallenge', 
             {eventName: 'authentication_challenge_webauthn', role: 'private_webapi'}
         ) as WebauthChallengeResponse;
+        return response;
+    }
+
+    async generateNewTotp(command: Object): Promise<MessageResponse> {
+        if(!this.connection) throw new Error("Connection is not initialized");
+        const encryptedResponse = await this.connection.sendCommand(
+            command, 'CoreMaitreDesComptes', 'generateOtp', 
+            {eventName: 'command_new_totp_secret', noverif: true}
+        ) as messageStruct.MilleGrillesMessage;
+        if(!encryptedResponse) {
+            throw new Error("No response received");
+        }
+        const response = await this.connection.verifyResponse(encryptedResponse) as MessageResponse;
+        return response;
+    }
+
+    async registerNewTotp(command: Object): Promise<MessageResponse> {
+        if(!this.connection) throw new Error("Connection is not initialized");
+        const response = await this.connection.sendCommand(
+            command, 'CoreMaitreDesComptes', 'registerOtp', 
+            {eventName: 'command_register_totp'}
+        );
         return response;
     }
 
