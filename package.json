@@ -1,6 +1,6 @@
 {
   "name": "millegrilles.authentication.typescript",
-  "version": "2024.6.1",
+  "version": "2025.4.34",
   "private": true,
   "dependencies": {
     "@peculiar/x509": "github:dugrema/peculiar_x509",
