@@ -81,7 +81,7 @@ function AddDeviceContent(props: AddDeviceContentType) {
                 
                 if(totpCode && totpCorrelation) {
                     // Add using authenticator code
-                    await registerTotpCode(workers, totpCode, totpCorrelation);
+                    await registerTotpCode(workers, totpCode, totpCorrelation, deactivateOtherKeys);
                 } else {
                     // Add new webauthn credential
                     await addMethod(workers, username, publicKey, challenge, deactivateOtherKeys);
@@ -277,9 +277,9 @@ async function respondRegistrationChallenge(username: string, challengeWebauthn:
     return data;
 }
 
-async function registerTotpCode(workers: AppWorkers, code: string, correlation: string) {
+async function registerTotpCode(workers: AppWorkers, code: string, correlation: string, resetKeys: boolean) {
     const hostname = window.location.hostname;
-    const command = {code, correlation, hostname};
+    const command = {code, correlation, hostname, reset_keys: resetKeys};
     const response = await workers.connection.registerNewTotp(command);
     console.debug("Generate new TOTP response", response);
     if(!response.ok) throw new Error(`Error registering the new TOTP code: ${response.err}`);
