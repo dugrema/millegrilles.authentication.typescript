@@ -56,7 +56,7 @@ function Login() {
             return;
         }
 
-        if(!unknownUser && notAvailable) {
+        if(!unknownUser && notAvailable && !totpCode) {
             // User exists and there are no authentication methods available for this browser.
             setRecoveryScreen(true);
             return;
