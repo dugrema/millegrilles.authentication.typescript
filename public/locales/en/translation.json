@@ -23,7 +23,9 @@
         "changeLanguage": "Change language",
         "logout": "Logout",
         "yourAccount": "This is for your {{username}} account.",
-        "password": "Password"
+        "password": "Password",
+        "totpCode": "Authenticator code",
+        "totpCode.placeholder": "Ex. 123456, not used for security token"
     },
     "buttons": {
         "next": "Next",

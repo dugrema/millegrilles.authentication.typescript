@@ -8,6 +8,8 @@ export type PrepareAuthenticationResult = {
     challengeReference: string,
 };
 
+export type DemandeCertificat = {nomUsager: string, csr: string, date: number, activationTierce?: boolean};
+
 export async function prepareAuthentication(
     username: string, challengeWebauthn: AuthenticationChallengeType, csr: string | null, 
     activationTierce: boolean): Promise<PrepareAuthenticationResult> 
@@ -27,7 +29,7 @@ export async function prepareAuthentication(
         }
     });
 
-    let demandeCertificat: {nomUsager: string, csr: string, date: number, activationTierce?: boolean} | null = null;
+    let demandeCertificat: DemandeCertificat | null = null;
     if(csr) {
         demandeCertificat = {
             nomUsager: username,

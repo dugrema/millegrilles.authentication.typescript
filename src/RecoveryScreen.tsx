@@ -15,6 +15,7 @@ type RecoveryScreenProps = {
     username: string,
     back(): void,
     sessionDuration: number,
+    totpCode: string,
 }
 
 type ActivationMessage = (MessageResponse | messageStruct.MilleGrillesMessage) & {
@@ -24,34 +25,35 @@ type ActivationMessage = (MessageResponse | messageStruct.MilleGrillesMessage) &
 
 export default function RecoveryScreen(props: RecoveryScreenProps) {
 
-    let { t } = useTranslation();
-    let workers = useWorkers();
-    let username = props.username;
-    let back = props.back;
-    let sessionDuration = props.sessionDuration;
+    const { t } = useTranslation();
+    const workers = useWorkers();
+    const username = props.username;
+    const back = props.back;
+    const sessionDuration = props.sessionDuration;
+    const totpCode = props.totpCode;
 
-    let connectionReady = useConnectionStore((state) => state.connectionReady);
-    let setMustManuallyAuthenticate = useConnectionStore((state) => state.setMustManuallyAuthenticate);
-    let setConnectionAuthenticated = useConnectionStore((state) => state.setConnectionAuthenticated);
-    let setUsernameStore = useConnectionStore( state => state.setUsername );
-    let setUsernamePersist = useAuthenticationStore( state => state.setUsername );
-    let setSessionDurationPersist = useAuthenticationStore( state => state.setSessionDuration );
+    const connectionReady = useConnectionStore((state) => state.connectionReady);
+    const setMustManuallyAuthenticate = useConnectionStore((state) => state.setMustManuallyAuthenticate);
+    const setConnectionAuthenticated = useConnectionStore((state) => state.setConnectionAuthenticated);
+    const setUsernameStore = useConnectionStore( state => state.setUsername );
+    const setUsernamePersist = useAuthenticationStore( state => state.setUsername );
+    const setSessionDurationPersist = useAuthenticationStore( state => state.setSessionDuration );
 
-    let [publicKey, setPublicKey] = useState<string>('');
-    let [activationCode, setActivationCode] = useState<string>('');
+    const [publicKey, setPublicKey] = useState<string>('');
+    const [activationCode, setActivationCode] = useState<string>('');
 
-    let receiveConfirmationCallback = useMemo(()=>proxy(async (event: SubscriptionMessage) => {
-        let activation = event.message as ActivationMessage;
+    const receiveConfirmationCallback = useMemo(()=>proxy(async (event: SubscriptionMessage) => {
+        const activation = event.message as ActivationMessage;
         if(activation.certificat && activation.fingerprint_pk) {
-            let userIdb = await getUser(username);
+            const userIdb = await getUser(username);
             if(!userIdb) {
                 throw new Error("Uknown user " + username);
             }
-            let certificateRequest = userIdb.request;
+            const certificateRequest = userIdb.request;
             if(!certificateRequest || certificateRequest.publicKeyString !== activation.fingerprint_pk) {
                 throw new Error("Mismatch between local request and new certificate");
             }
-            let certificate = activation.certificat;
+            const certificate = activation.certificat;
             await receiveCertificate(username, certificate);
 
             // Ready, log the user in
@@ -59,7 +61,7 @@ export default function RecoveryScreen(props: RecoveryScreenProps) {
                 setUsernameStore(username);
 
                 // Activate the server session
-                await performLogin(workers, username, sessionDuration);
+                await performLogin(workers, username, sessionDuration, totpCode);
                 
                 // Authenticate the connection worker
                 await authenticateConnectionWorker(workers, username, true);

@@ -5,6 +5,7 @@ import { ConnectionWorker, MessageResponse, SubscriptionCallback, SubscriptionPa
 
 import '@solana/webcrypto-ed25519-polyfill';
 import apiMapping from '../resources/apiMapping.json';
+import { DemandeCertificat } from '../webauthn';
 
 export type AuthenticationChallengePublicKeyType = {
     allowCredentials?: Array<{id: string, type: string}>,
@@ -71,6 +72,10 @@ export type ActivationCodeResponse = MessageResponse & {
     csr?: string,
     nomUsager?: string,
 };
+
+// export type TotpAuthenticationResponse = MessageResponse & {
+//     pem: string,
+// }
 
 export class AuthenticationConnectionWorker extends ConnectionWorker {
 

@@ -1,4 +1,4 @@
-import {Dispatch, useState, useMemo, useCallback, useEffect} from 'react';
+import {Dispatch, useState, useMemo, useCallback, useEffect, ChangeEvent, SetStateAction} from 'react';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 
@@ -11,40 +11,41 @@ import useAuthenticationStore from './authenticationStore';
 import useWorkers, { AppWorkers } from './workers/workers';
 import { clearCertificate, getUser, getUsersList, receiveCertificate, updateUser, UserCertificateRequest } from './idb/userStoreIdb';
 import { AuthenticationChallengePublicKeyType, AuthenticationChallengeType } from './workers/connection.worker';
-import { prepareAuthentication, PrepareAuthenticationResult, signAuthenticationRequest } from './webauthn';
+import { DemandeCertificat, prepareAuthentication, PrepareAuthenticationResult, signAuthenticationRequest } from './webauthn';
 import RecoveryScreen from './RecoveryScreen';
 import ActionButton from './ActionButton';
 
 function Login() {
 
-    let { t } = useTranslation();
-    let workers = useWorkers();
+    const { t } = useTranslation();
+    const workers = useWorkers();
 
-    let setUsernameStore = useConnectionStore(state=>state.setUsername);
-    let setMustManuallyAuthenticate = useConnectionStore((state) => state.setMustManuallyAuthenticate);
-    let setConnectionAuthenticated = useConnectionStore((state) => state.setConnectionAuthenticated);
-    let setConnectionInsecure = useConnectionStore((state) => state.setConnectionInsecure);
+    const setUsernameStore = useConnectionStore(state=>state.setUsername);
+    const setMustManuallyAuthenticate = useConnectionStore((state) => state.setMustManuallyAuthenticate);
+    const setConnectionAuthenticated = useConnectionStore((state) => state.setConnectionAuthenticated);
+    const setConnectionInsecure = useConnectionStore((state) => state.setConnectionInsecure);
 
     // Store that persists values in local storage
-    let usernamePersist = useAuthenticationStore( state => state.username );
-    let setUsernamePersist = useAuthenticationStore( state => state.setUsername );
-    let sessionDurationPersist = useAuthenticationStore( state => state.sessionDuration );
-    let setSessionDurationPersist = useAuthenticationStore( state => state.setSessionDuration );
+    const usernamePersist = useAuthenticationStore( state => state.username );
+    const setUsernamePersist = useAuthenticationStore( state => state.setUsername );
+    const sessionDurationPersist = useAuthenticationStore( state => state.sessionDuration );
+    const setSessionDurationPersist = useAuthenticationStore( state => state.setSessionDuration );
 
     // Initialize values from persistent storage
-    let [username, setUsername] = useState(usernamePersist);
-    let [sessionDuration, setSessionDuration] = useState(sessionDurationPersist);
+    const [username, setUsername] = useState(usernamePersist);
+    const [sessionDuration, setSessionDuration] = useState(sessionDurationPersist);
 
-    let [recoveryScreen, setRecoveryScreen] = useState(false);
-    let [error, setError] = useState('');
-    let [mainOpacity, setMainOpacity] = useState('opacity-100');
-    let [register, setRegister] = useState(false);
-    let [webauthnChallenge, setWebauthnChallenge] = useState(null as PrepareAuthenticationResult | null);
-    let [webauthnReady, setWebauthnReady] = useState(false);
-    let [notAvailable, setNotAvailable] = useState(null as boolean | null);
-    let [unknownUser, setUnknownUser] = useState(false);
+    const [recoveryScreen, setRecoveryScreen] = useState(false);
+    const [error, setError] = useState('');
+    const [mainOpacity, setMainOpacity] = useState('opacity-100');
+    const [register, setRegister] = useState(false);
+    const [webauthnChallenge, setWebauthnChallenge] = useState(null as PrepareAuthenticationResult | null);
+    const [webauthnReady, setWebauthnReady] = useState(false);
+    const [notAvailable, setNotAvailable] = useState(null as boolean | null);
+    const [unknownUser, setUnknownUser] = useState(false);
+    const [totpCode, setTotpCode] = useState('');
 
-    let handleLogin = useCallback(async ()=>{
+    const handleLogin = useCallback(async ()=>{
         if(!workers) {
             setError('There is an error with the connection');
             return;
@@ -60,16 +61,17 @@ function Login() {
             setRecoveryScreen(true);
             return;
         }
+        setError('');
 
         // Handle auto-login redirect after a session timeout or access via bookmarks
         let url = new URL(window.location.href);
         let returnTo = url.searchParams.get('returnTo');
         // console.debug("URL: %O, returnTo: %O", url, returnTo);
 
-        if(webauthnChallenge) {
+        if(webauthnChallenge && !totpCode) {
             try {
                 // Immediately sign the challenge - allows for 1-pass on iOS
-                await authenticateHttpSession(workers, username, webauthnChallenge.demandeCertificat, webauthnChallenge.publicKey, sessionDuration)
+                await authenticateHttpSession(workers, username, webauthnChallenge.demandeCertificat, webauthnChallenge.publicKey, sessionDuration, totpCode)
                 if(returnTo) {
                     url.pathname = returnTo;
                     url.searchParams.delete("returnTo");
@@ -90,46 +92,64 @@ function Login() {
             }
         }
 
-        // Normal login process when the webauthn challenge is not provided up front.
-        performLogin(workers, username, sessionDuration)
-            .then(async result=>{
-                // Set the username for the overall application
-                if(result.register) {
-                    setUsernameStore(username);
-                    setRegister(true);
-                } else if(result.authenticated) {
+        // Normal login process with TOTP code or when the webauthn challenge is not provided up front.
+        try {
+            const loginResult = await performLogin(workers, username, sessionDuration, totpCode);
+            // Set the username for the overall application
+            if(loginResult.register) {
+                setUsernameStore(username);
+                setRegister(true);
+            } else if(loginResult.authenticated) {
+                setUsernameStore(username);
+                setMustManuallyAuthenticate(false);
+
+                // Connect the worker
+                let authResult = await workers?.connection.authenticate(true);  // Reconnect flag
+                if(!authResult) throw new Error("Authentication error");
+                setConnectionAuthenticated(true);
+
+                // Todo - start transition to allow application list to preload.
+                setMainOpacity('opacity-0');  // Makes the login form fade out during the transition
+
+                // Persist information for next time the screen is loaded
+                setUsernamePersist(username);
+                setSessionDurationPersist(sessionDuration);
+            } else { 
+                const user = await getUser(username);
+                let csr: string | null = null;
+                if(user?.request) {
+                    // Use the CSR for the signature
+                    csr = user?.request.pem;
+                }
+                if(loginResult.totpCode) {
+                    const result = await authenticateTotp(workers, username, loginResult.totpCode, csr, sessionDuration);  // Throws exception on failure
+                    if(!result.authenticated) {
+                        throw new Error("Error authenticating");
+                    }
+
+                    // Authentication successful
                     setUsernameStore(username);
                     setMustManuallyAuthenticate(false);
-
-                    // Connect the worker
-                    let authResult = await workers?.connection.authenticate(true);  // Reconnect flag
-                    if(!authResult) throw new Error("Authentication error");
                     setConnectionAuthenticated(true);
-
-                    // Todo - start transition to allow application list to preload.
-                    setMainOpacity('opacity-0');  // Makes the login form fade out during the transition
 
                     // Persist information for next time the screen is loaded
                     setUsernamePersist(username);
                     setSessionDurationPersist(sessionDuration);
-                } else if(result.webauthnChallenge) {
-                    let user = await getUser(username);
-                    let csr: string | null = null;
-                    if(user?.request) {
-                        // Use the CSR for the signature
-                        csr = user?.request.pem;
-                    }
-                    let preparedChallenge = await prepareAuthentication(username, result.webauthnChallenge, csr, false);
+                } else if(loginResult.webauthnChallenge) {
+                    const preparedChallenge = await prepareAuthentication(username, loginResult.webauthnChallenge, csr, false);
                     setWebauthnChallenge(preparedChallenge);
                 }
-            })
-            .catch(err=>{
-                console.error("userLoginVerification error", err)
-            });
-        
-    }, [workers, username, setMainOpacity, setUsernameStore, setRegister, setRecoveryScreen, webauthnChallenge, sessionDuration, setUsernamePersist, setSessionDurationPersist, setConnectionAuthenticated, setMustManuallyAuthenticate, notAvailable, unknownUser]);
+            }
+        } catch(err) {
+            // console.error("userLoginVerification error", err);
+            if(totpCode) setError('Invalid Authenticator Code');
+            throw err;
+        }
 
-    let prepareSignatureHandler = useCallback(async (webauthnChallenge: AuthenticationChallengeType)=>{
+    }, [workers, username, webauthnChallenge, sessionDuration, totpCode,
+        setMainOpacity, setUsernameStore, setRegister, setRecoveryScreen, setUsernamePersist, setSessionDurationPersist, setConnectionAuthenticated, setMustManuallyAuthenticate, notAvailable, unknownUser]);
+
+    const prepareSignatureHandler = useCallback(async (webauthnChallenge: AuthenticationChallengeType)=>{
         // Check if the user exists locally and verify if certificate should be renewed.
         let csr: string | null = null;
         let user = await getUser(username);
@@ -211,7 +231,7 @@ function Login() {
         return () => clearTimeout(timeout);
     }, [workers, username, webauthnChallenge, setWebauthnChallenge, prepareSignatureHandler, setUnknownUser])
 
-    let usernameOnChangeHandler = useCallback((e: React.FormEvent<HTMLInputElement>) => {
+    const usernameOnChangeHandler = useCallback((e: React.FormEvent<HTMLInputElement>) => {
         setError('');
         setUsername(e.currentTarget.value);
         // Reset flags to deactivate the Next button
@@ -219,19 +239,19 @@ function Login() {
         setUnknownUser(false);
     }, [setUsername, setError, setWebauthnChallenge, setUnknownUser]);
 
-    let closeRegister = useCallback(()=>{
+    const closeRegister = useCallback(()=>{
         setRegister(false);
     }, [setRegister]);
 
-    let closeWebauthnScreen = useCallback(()=>{
+    const closeWebauthnScreen = useCallback(()=>{
         setWebauthnChallenge(null);
     }, [setWebauthnChallenge]);
 
-    let closeRecoveryScreen = useCallback(()=>{
+    const closeRecoveryScreen = useCallback(()=>{
         setRecoveryScreen(false);
     }, [setRecoveryScreen]);
 
-    let setSessionDurationHandler = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    const setSessionDurationHandler = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
         let value = Number.parseInt(e.currentTarget.value);
         if(!isNaN(value)) setSessionDuration(value);
     }, [setSessionDuration]);
@@ -240,21 +260,23 @@ function Login() {
     let pageContent;
     if(register) {
         pageContent = (
-            <UserRegistrationScreen username={username} back={closeRegister} sessionDuration={sessionDuration} />
+            <UserRegistrationScreen username={username} back={closeRegister} sessionDuration={sessionDuration} totpCode={totpCode} />
         );
     } else if(recoveryScreen) {
         pageContent = (
-            <RecoveryScreen username={username} back={closeRecoveryScreen} sessionDuration={sessionDuration} />
+            <RecoveryScreen username={username} back={closeRecoveryScreen} sessionDuration={sessionDuration} totpCode={totpCode} />
         );
     } else if(webauthnChallenge && !webauthnReady) {
         pageContent = (
             <WebauthnChallengeScreen username={username} back={closeWebauthnScreen} webauthnChallenge={webauthnChallenge} 
-                sessionDuration={sessionDuration}/>
+                sessionDuration={sessionDuration} totpCode={totpCode}/>
         );
     } else {
         pageContent = (
             <UserInputScreen username={username} usernameOnChange={usernameOnChangeHandler} handleLogin={handleLogin} 
-                disabled={notAvailable === null}
+            totpCode={totpCode}
+            setTotpCode={setTotpCode}
+            disabled={notAvailable === null}
                 duration={sessionDuration} setDuration={setSessionDurationHandler} />
         );
     }
@@ -279,6 +301,8 @@ type UserInputScreenProps = {
     handleLogin: ()=>Promise<void>,
     duration: number,
     setDuration(e: React.ChangeEvent<HTMLSelectElement>): void,
+    totpCode: string,
+    setTotpCode: Dispatch<string>,
     disabled: boolean
 };
 
@@ -289,6 +313,7 @@ function UserInputScreen(props: UserInputScreenProps) {
                 <UserSelection username={props.username} usernameOnChangeHandler={props.usernameOnChange} />
                 <LanguageSelectbox />
                 <DurationSelectbox duration={props.duration} setDuration={props.setDuration} />
+                <TotpCode totpCode={props.totpCode} setTotpCode={props.setTotpCode} />
                 
                 <div className='grid grid-cols-1 min-w-full col-span-3 justify-items-center mt-10'>
                     <Buttons handleLogin={props.handleLogin} disabled={props.disabled} />
@@ -324,29 +349,31 @@ function Buttons(props: ButtonsProps) {
 type UserRegistrationScreenProps = {
     username: string,
     sessionDuration: number,
+    totpCode: string,
     back(e: any): void,
 }
 
 function UserRegistrationScreen(props: UserRegistrationScreenProps) {
 
-    let { t } = useTranslation();
-    let workers = useWorkers();
-    let setMustManuallyAuthenticate = useConnectionStore((state) => state.setMustManuallyAuthenticate);
-    let setConnectionAuthenticated = useConnectionStore((state) => state.setConnectionAuthenticated);
-    let connectionReady = useConnectionStore((state) => state.connectionReady);
+    const { t } = useTranslation();
+    const workers = useWorkers();
+    const setMustManuallyAuthenticate = useConnectionStore((state) => state.setMustManuallyAuthenticate);
+    const setConnectionAuthenticated = useConnectionStore((state) => state.setConnectionAuthenticated);
+    const connectionReady = useConnectionStore((state) => state.connectionReady);
 
     // Store that persists values in local storage
-    let setUsernamePersist = useAuthenticationStore( state => state.setUsername );
-    let setSessionDurationPersist = useAuthenticationStore( state => state.setSessionDuration );
+    const setUsernamePersist = useAuthenticationStore( state => state.setUsername );
+    const setSessionDurationPersist = useAuthenticationStore( state => state.setSessionDuration );
     
-    let username = props.username;
-    let sessionDuration = props.sessionDuration;
+    const username = props.username;
+    const sessionDuration = props.sessionDuration;
+    const totpCode = props.totpCode;
 
-    let handleRegistration = useCallback((e: React.FormEvent<HTMLInputElement|HTMLFormElement>)=>{
+    const handleRegistration = useCallback((e: React.FormEvent<HTMLInputElement|HTMLFormElement>)=>{
         e.preventDefault();
         e.stopPropagation();
         if(!workers) throw Error("Workers not initialized");
-        registerUser(workers, username, sessionDuration)
+        registerUser(workers, username, sessionDuration, totpCode)
             .then(async response =>{
                 if(response.authenticated) {
                     setMustManuallyAuthenticate(false);
@@ -389,28 +416,30 @@ type WebauthnChallengeScreenProps = {
     back(e: any): void,
     webauthnChallenge: PrepareAuthenticationResult,
     sessionDuration: number,
+    totpCode: string,
 }
 
 function WebauthnChallengeScreen(props: WebauthnChallengeScreenProps) {
 
-    let { t } = useTranslation();
+    const { t } = useTranslation();
 
-    let username = props.username;
-    let webauthnChallenge = props.webauthnChallenge;
-    let sessionDuration = props.sessionDuration;  // Todo propagate session duration
+    const username = props.username;
+    const webauthnChallenge = props.webauthnChallenge;
+    const sessionDuration = props.sessionDuration;  // Todo propagate session duration
+    const totpCode = props.totpCode;
 
-    let workers = useWorkers();
+    const workers = useWorkers();
 
-    let setMustManuallyAuthenticate = useConnectionStore((state) => state.setMustManuallyAuthenticate);
-    let setConnectionAuthenticated = useConnectionStore((state) => state.setConnectionAuthenticated);
+    const setMustManuallyAuthenticate = useConnectionStore((state) => state.setMustManuallyAuthenticate);
+    const setConnectionAuthenticated = useConnectionStore((state) => state.setConnectionAuthenticated);
 
     // Store that persists values in local storage
-    let setUsernamePersist = useAuthenticationStore( state => state.setUsername );
-    let setSessionDurationPersist = useAuthenticationStore( state => state.setSessionDuration );
+    const setUsernamePersist = useAuthenticationStore( state => state.setUsername );
+    const setSessionDurationPersist = useAuthenticationStore( state => state.setSessionDuration );
     
-    let loginHandler = useCallback(()=>{
+    const loginHandler = useCallback(()=>{
         if(!workers) throw new Error("Workers not initialized");
-        authenticateHttpSession(workers, username, webauthnChallenge.demandeCertificat, webauthnChallenge.publicKey, sessionDuration)
+        authenticateHttpSession(workers, username, webauthnChallenge.demandeCertificat, webauthnChallenge.publicKey, sessionDuration, totpCode)
             .then(()=>{
                 setConnectionAuthenticated(true);
                 setMustManuallyAuthenticate(false);
@@ -501,6 +530,34 @@ function DurationSelectbox(props: DurationSelectBox) {
     )
 }
 
+type TotpCodeProps = {
+    totpCode: string,
+    setTotpCode: Dispatch<string>
+};
+
+function TotpCode(props: TotpCodeProps) {
+    const {setTotpCode} = props;
+    
+    const { t } = useTranslation();
+
+    const totpCodeOnChange = useCallback((e: ChangeEvent<HTMLInputElement>)=>setTotpCode(e.currentTarget.value), [setTotpCode]);
+
+    // Note : the input field 'foilautocomplete' is used to prevent password managers from auto-filling the username.
+
+    return (
+        <>
+            <label htmlFor='totpcode' className='pr-4 mt-2'>{t('labels.totpCode')}</label>
+            <input type="text" className='hidden' name='foilautocomplete' />
+            <input 
+                id='totpcode' type='text' autoComplete='off'
+                className='min-w-full mt-2 col-span-2 bg-slate-700 text-slate-300 hover:bg-slate-500 hover:ring-offset-1 hover:ring-1 focus:bg-indigo-700' 
+                value={props.totpCode} onChange={totpCodeOnChange}
+                placeholder={t('labels.totpCode.placeholder')}
+                />
+        </>
+    )
+}
+
 export function LanguageSelectbox() {
 
     let { t, i18n } = useTranslation();
@@ -562,13 +619,13 @@ type UserLoginVerificationResult = {
 
 export async function userLoginVerification(username: string): Promise<UserLoginVerificationResult | null> {
     // Check if the username exists or is new
-    let userIdb = await getUser(username);
+    const userIdb = await getUser(username);
     // Load current public key to get activation flags (logging in without security devices)
-    let currentPublicKey = userIdb?.certificate?.publicKeyString;
+    const currentPublicKey = userIdb?.certificate?.publicKeyString;
     // Load future public key (existing request) to get a newly activated certificate
-    let newPublicKey = userIdb?.request?.publicKeyString;
+    const newPublicKey = userIdb?.request?.publicKeyString;
     const hostname = window.location.hostname
-    let data = {
+    const data = {
         nomUsager: username, 
         hostname, 
         fingerprintPkCourant: currentPublicKey,
@@ -585,11 +642,11 @@ export async function userLoginVerification(username: string): Promise<UserLogin
         // User is known
         let content = await JSON.parse(response.data.contenu) as UserLoginVerificationResult;
         if(content.certificat && userIdb?.request) {
-            let certificate = content.certificat;
+            const certificate = content.certificat;
             await receiveCertificate(username, certificate);
 
             // Do a new request to check that the back-end will accept activation with this certificate
-            let certificateRequest = userIdb.request;
+            const certificateRequest = userIdb.request;
             data.fingerprintPkNouveau = undefined;
             data.fingerprintPkCourant = certificateRequest.publicKeyString;
             response = await axios({method: 'POST', url: '/auth/get_usager', data, timeout: 20_000 });
@@ -600,12 +657,12 @@ export async function userLoginVerification(username: string): Promise<UserLogin
 }
 
 export async function createCertificateRequest(workers: AppWorkers, username: string, userId?: string): Promise<UserCertificateRequest> {
-    let request = await workers?.connection.createCertificateRequest(username, userId);
+    const request = await workers?.connection.createCertificateRequest(username, userId);
 
     // Save the new CSR and private key in IDB.
-    let publicKeyString = multiencoding.encodeHex(request.publicKey);
+    const publicKeyString = multiencoding.encodeHex(request.publicKey);
 
-    let requestEntry = {
+    const requestEntry = {
         pem: request.pem, 
         publicKey: request.publicKey, 
         privateKey: request.privateKey, 
@@ -618,7 +675,7 @@ export async function createCertificateRequest(workers: AppWorkers, username: st
     return requestEntry
 }
 
-async function registerUser(workers: AppWorkers, username: string, sessionDuration: number) {
+async function registerUser(workers: AppWorkers, username: string, sessionDuration: number, totpCode: string) {
     // Get userId if available
     let userId: string | undefined = undefined;
     let certificateRequest = await createCertificateRequest(workers, username, userId);
@@ -635,37 +692,37 @@ async function registerUser(workers: AppWorkers, username: string, sessionDurati
     await receiveCertificate(username, certificate);
 
     // Activate the server session
-    await performLogin(workers, username, sessionDuration);
+    await performLogin(workers, username, sessionDuration, totpCode);
     
     // Authenticate the connection worker
     return await authenticateConnectionWorker(workers, username, true);
 }
 
 export async function prepareRenewalIfDue(workers: AppWorkers, certificate: certificates.CertificateWrapper): Promise<UserCertificateRequest | null> {
-    let expiration = certificate.certificate.notAfter;
-    let now = new Date();
+    const expiration = certificate.certificate.notAfter;
+    const now = new Date();
 
-    let username = certificate.extensions?.commonName;
-    let userId = certificate.extensions?.userId;
+    const username = certificate.extensions?.commonName;
+    const userId = certificate.extensions?.userId;
 
     if(!username || !userId) throw new Error("Invalid certificate, no commonName or userId");
 
     if(now > expiration) {
         // The certificate is expired. Remove it and generate new request.
         await clearCertificate(username);
-        let entry = await createCertificateRequest(workers, username, userId);
+        const entry = await createCertificateRequest(workers, username, userId);
         return entry;
     } else {
         // Check if the certificate is about to expire (>2/3 duration)
-        let notBefore = certificate.certificate.notBefore;
-        let totalDuration = expiration.getTime() - notBefore.getTime();
-        let canRenewTs = Math.floor(totalDuration * 2/3 + notBefore.getTime());
-        let canRenew = new Date(canRenewTs);
+        const notBefore = certificate.certificate.notBefore;
+        const totalDuration = expiration.getTime() - notBefore.getTime();
+        const canRenewTs = Math.floor(totalDuration * 2/3 + notBefore.getTime());
+        const canRenew = new Date(canRenewTs);
 
         if(now > canRenew) {
             // Generate a new certificate request
-            let userId: string | undefined = undefined;  // TODO : get userId
-            let entry = await createCertificateRequest(workers, username, userId);
+            const userId: string | undefined = undefined;  // TODO : get userId
+            const entry = await createCertificateRequest(workers, username, userId);
             return entry;
         }
     }
@@ -680,38 +737,41 @@ type PerformLoginResult = {
     authenticated?: boolean,
     userId?: string,
     webauthnChallenge?: AuthenticationChallengeType,
+    totpCode?: string,
 }
 
-export async function performLogin(workers: AppWorkers, username: string, sessionDuration: number): Promise<PerformLoginResult> {
-    let userDbInfo = await getUser(username)
+export async function performLogin(workers: AppWorkers, username: string, sessionDuration: number, totpCode: string): Promise<PerformLoginResult> {
+    const userDbInfo = await getUser(username)
 
-    // let currentPublicKey: string | undefined;
     let newPublicKey: string | undefined;
     if(userDbInfo) {
         // The user is locally known. Extract public keys.
-        let requestInfo = userDbInfo.request;
+        const requestInfo = userDbInfo.request;
         newPublicKey = requestInfo?.publicKeyString;
 
         // Prepare information to generate challenges depending on server state.
-        let certificateInfo = userDbInfo.certificate;
+        const certificateInfo = userDbInfo.certificate;
         // currentPublicKey = certificateInfo?.publicKeyString;
         
         if(!newPublicKey && certificateInfo?.certificate) {
             // We have no pending certificate request. Check if the current certificate is expired (or about to).
-            let wrapper = new certificates.CertificateWrapper(certificateInfo.certificate);
+            const wrapper = new certificates.CertificateWrapper(certificateInfo.certificate);
             wrapper.populateExtensions();
             await prepareRenewalIfDue(workers, wrapper);
         }
     }
 
-    let loginInfo = await userLoginVerification(username);
+    const loginInfo = await userLoginVerification(username);
     if(loginInfo) {
         // The user exists
         if(userDbInfo?.certificate && loginInfo.challenge_certificat) {
             // We got a challenge to authenticate with the certificate.
             await workers.connection.prepareMessageFactory(userDbInfo.certificate.privateKey, userDbInfo.certificate.certificate);
-            let authenticationResponse = await certificateAuthentication(workers, loginInfo.challenge_certificat, sessionDuration);
+            const authenticationResponse = await certificateAuthentication(workers, loginInfo.challenge_certificat, sessionDuration);
             return {authenticated: authenticationResponse.auth, userId: authenticationResponse.userId};
+        } else if(totpCode) {
+            // Authenticate using TOTP
+            return { totpCode };
         } else {
             // Determine if we can authenticate with a security device (webauth).
             return { webauthnChallenge: loginInfo.authentication_challenge }
@@ -729,12 +789,12 @@ type AuthenticationResponseType = {
 }
 
 async function certificateAuthentication(workers: AppWorkers, challenge: string, sessionDuration?: number): Promise<AuthenticationResponseType> {
-    let data = {certificate_challenge: challenge, activation: true, dureeSession: sessionDuration};
+    const data = {certificate_challenge: challenge, activation: true, dureeSession: sessionDuration};
     // Sign as a command
-    let command = await workers.connection.signAuthentication(data);
-    let authenticationResult = await axios.post('/auth/authentifier_usager', command);
-    let responseMessage = authenticationResult.data as messageStruct.MilleGrillesMessage;
-    let authenticationResponse = JSON.parse(responseMessage.contenu) as AuthenticationResponseType;
+    const command = await workers.connection.signAuthentication(data);
+    const authenticationResult = await axios.post('/auth/authentifier_usager', command);
+    const responseMessage = authenticationResult.data as messageStruct.MilleGrillesMessage;
+    const authenticationResponse = JSON.parse(responseMessage.contenu) as AuthenticationResponseType;
     return authenticationResponse
 }
 
@@ -749,7 +809,7 @@ async function certificateAuthentication(workers: AppWorkers, challenge: string,
  * @returns 
  */
 async function authenticateHttpSession(workers: AppWorkers, username: string, demandeCertificat: any, 
-    publicKey: AuthenticationChallengePublicKeyType, sessionDuration: number): Promise<AuthenticationResponseType> 
+    publicKey: AuthenticationChallengePublicKeyType, sessionDuration: number, totpCode: string): Promise<AuthenticationResponseType> 
 {
     // N.B. La methode doit etre appelee par la meme thread que l'event pour supporter
     //      TouchID sur iOS.
@@ -769,7 +829,7 @@ async function authenticateHttpSession(workers: AppWorkers, username: string, de
         }
 
         // Activate the server session
-        await performLogin(workers, username, sessionDuration);
+        await performLogin(workers, username, sessionDuration, totpCode);
         
         // Authenticate the connection worker
         return await authenticateConnectionWorker(workers, username, true);
@@ -831,4 +891,32 @@ export async function authenticateConnectionWorker(workers: AppWorkers, username
     if(!await workers.connection.authenticate(true)) throw new Error('Authentication failed (api mapping)');
 
     return { authenticated: true };
+}
+
+async function authenticateTotp(workers: AppWorkers, username: string, totpCode: string, csr: string | null, sessionDuration: number): Promise<PerformLoginResult> {
+    let demandeCertificat: DemandeCertificat | null = null;
+    if(csr) {
+        demandeCertificat = {
+            nomUsager: username,
+            csr,
+            date: Math.floor(new Date().getTime()/1000),
+        }
+    }
+    const command = {totpCode, dureeSession: sessionDuration, demandeCertificat, activation: true};
+    const authenticationResult = await axios.post('/auth/authentifier_usager', command);
+    const responseMessage = authenticationResult.data as messageStruct.MilleGrillesMessage;
+    const authenticationResponse = JSON.parse(responseMessage.contenu) as AuthenticationResponseType;
+
+    if(authenticationResponse.certificat) {
+        // Save the new certificate over the old one
+        // Get the newly generated certificate chain. The last one is the CA, remove it from the chain.
+        let certificate = authenticationResponse.certificat;
+        await receiveCertificate(username, certificate);
+    }
+
+    // Activate the server session
+    await performLogin(workers, username, sessionDuration, totpCode);
+    
+    // Authenticate the connection worker
+    return await authenticateConnectionWorker(workers, username, true);
 }
