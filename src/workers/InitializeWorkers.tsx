@@ -59,13 +59,15 @@ function InitializeWorkers() {
 
         return fetch('/auth/verifier_usager')
             .then(async (verifUser: Response) => {
+                // console.debug("Response verifier usager: %O", verifUser);
                 let userStatus = verifUser.status;
                 let username = verifUser.headers.get('x-user-name');
                 // let userId = verifUser.headers.get('x-user-id');
                 setUserSessionActive(userStatus === 200);
                 if(username) setUsername(username);
 
-                let result = await initWorkers(connectionCallback) as InitWorkersResult;
+                const result = await initWorkers(connectionCallback) as InitWorkersResult;
+                // console.debug("Fiche recue: %O", result);
                 // Success.
                 setFiche(result.idmg, result.ca, result.chiffrage);
                 // Set the worker state to ready, allows the remainder of the application to load.

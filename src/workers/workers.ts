@@ -27,16 +27,18 @@ export type InitWorkersResult = {
 
 export async function initWorkers(callback: (params: ConnectionCallbackParameters) => void): Promise<InitWorkersResult> {
 
-    let {idmg, ca, chiffrage} = await loadFiche();
+    const {idmg, ca, chiffrage} = await loadFiche();
+    // console.debug(`Contenu fiche: IDMG:${idmg}, CA:${ca}, Chiffrage:${chiffrage}`);
 
-    let worker = new Worker(new URL('./connection.worker.ts', import.meta.url));
-    let connection = wrap(worker) as Remote<AuthenticationConnectionWorker>;
+    const worker = new Worker(new URL('./connection.worker.ts', import.meta.url), {type: 'module'});
+    const connection = wrap(worker) as Remote<AuthenticationConnectionWorker>;
 
     // Set-up the workers
-    let serverUrl = new URL(window.location.href);
+    const serverUrl = new URL(window.location.href);
     serverUrl.pathname = SOCKETIO_PATH;
+    // console.debug("Server url: %s\nWorker instances: ${connection}\nInitializing workers", serverUrl)
     await connection.initialize(serverUrl.href, ca, callback, {reconnectionDelay: 7500});
-
+    // console.debug("Workers initialized");
     workers = {connection};
 
     return {idmg, ca, chiffrage, workers};
