@@ -51,6 +51,9 @@ export default defineConfig({
     }),
   ],
   base: '/millegrilles/',
+  build: {
+    sourcemap: false,
+  },
   test: {
     globals: true,
     environment: 'jsdom',
