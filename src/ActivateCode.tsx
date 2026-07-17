@@ -91,9 +91,27 @@ function UploadKey(props: ActivateCodeProps) {
         file.arrayBuffer()
             .then(fileContent => {
                 // Parse the json file content
-                let content = new TextDecoder().decode(fileContent);
-                let key = JSON.parse(content);
-                setUploadedKey(key);
+                const content = new TextDecoder().decode(fileContent);
+                try {
+                    const key = JSON.parse(content);
+                    setUploadedKey(key);
+                } catch(err) {
+                    // Try to parse the file as PEM with private key and certificate
+                    try {
+                        console.debug("Not json, trying to load as PEM:\n", content);
+                        const {key, chain} = certificates.splitKeyCertPem(content);
+                        const certificat = chain.join("\n");
+                        console.debug("Parsed PEM: \n%O\n%O\nCHAIN:\n%O", key, certificat, chain);
+                        const parsedKey = {
+                            idmg: "DUMMY",
+                            racine: {certificat, cleChiffree: key},
+                        } as SystemKeyfileType;
+                        console.debug("Parsed key: ", parsedKey);
+                        setUploadedKey(parsedKey);
+                    } catch(err2) {
+                        throw err;  // Re-throw original error
+                    }
+                }
             })
             .catch(err=>{
                 console.error("Error parsing key file", err);
@@ -101,7 +119,8 @@ function UploadKey(props: ActivateCodeProps) {
             });
     }, [setUploadedKey, setInvalidKey]);
 
-    let checkKeyHandler = useCallback((e: React.FormEvent<HTMLInputElement>)=>{
+    const checkKeyHandler = useCallback((e: React.FormEvent<HTMLInputElement>)=>{
+        console.debug("Activated delegation: %O, %O, %O", workers, challenge, uploadedKey);
         if(!workers || !challenge || !uploadedKey) return;
         activateDelegation(workers, challenge, uploadedKey, password)
             .then(()=>{
@@ -113,7 +132,7 @@ function UploadKey(props: ActivateCodeProps) {
             });
     }, [workers, challenge, password, uploadedKey, setInvalidKey, setInstallCertificate]) as FormEventHandler;
 
-    let passwordChangeHandler = useCallback((e: React.FormEvent<HTMLInputElement>)=>{
+    const passwordChangeHandler = useCallback((e: React.FormEvent<HTMLInputElement>)=>{
         setInvalidKey(false);
         setPassword(e.currentTarget?e.currentTarget.value:'');
     }, [setPassword, setInvalidKey]) as FormEventHandler;
@@ -176,9 +195,11 @@ function UploadKeyForm(props: UploadKeyFormProps) {
 
     useEffect(()=>{
         if(!workers) return;
-        let hostname = window.location.hostname;
+        const hostname = window.location.hostname;
+        console.debug("Generate webauth challenge for hostname: %s", hostname)
         workers.connection.generateWebauthChallenge({hostname, delegation: true})
             .then(result=>{
+                console.debug("Webauth challenge result: %O", result)
                 if(result.delegation_challenge) {
                     setChallenge(result.delegation_challenge)
                 } else {
@@ -189,7 +210,7 @@ function UploadKeyForm(props: UploadKeyFormProps) {
                 console.error("Error retrieving challenge ", err);
                 // erreurCb(err, 'Erreur reception challenge de delegation du serveur')
             })
-    }, [workers, setChallenge])
+    }, [workers, setChallenge, ready])
 
     // The password for system keys is a critical piece of security. It must not be saved.
     // Password protection : https://stackoverflow.com/questions/41945535/html-disable-password-manager
@@ -208,7 +229,7 @@ function UploadKeyForm(props: UploadKeyFormProps) {
                 />
 
             <label htmlFor='file-upload'>{t('screens.activateCode.keyFileUpload')}</label>
-            <FileInput id='file-upload' sizing='sm' className='w-full max-w-80 overflow-hidden' required accept='application/json'
+            <FileInput id='file-upload' sizing='sm' className='w-full max-w-80 overflow-hidden' required accept='application/json, application/x-pem-file, .pem'
                 onChange={props.uploadKey} />
 
             <div className='w-80 h-8'>
