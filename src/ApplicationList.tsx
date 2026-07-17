@@ -64,7 +64,7 @@ function ApplicationList(props: ApplicationListProps) {
         if(pageName) setPage(pageName);
     }, [setPage]);
 
-    let userEventCallback = useMemo(()=>proxy(async (e: SubscriptionMessage) => {
+    let userEventCallback = useMemo(()=>proxy(async (e: any) => {
         // Check if the delegations_date is > than current certificate.
         let message = e.message as UserUpdateEvent;
         let deletagions_date = message.delegations_date;

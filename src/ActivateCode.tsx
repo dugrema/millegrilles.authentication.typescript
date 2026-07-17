@@ -209,8 +209,7 @@ function UploadKeyForm(props: UploadKeyFormProps) {
 
             <label htmlFor='file-upload'>{t('screens.activateCode.keyFileUpload')}</label>
             <FileInput id='file-upload' sizing='sm' className='w-full max-w-80 overflow-hidden' required accept='application/json'
-                onChange={props.uploadKey}
-                helperText={t('screens.activateCode.formatIsJson')} />
+                onChange={props.uploadKey} />
 
             <div className='w-80 h-8'>
                 <p className={classnameMessageInvalid}>{t('screens.activateCode.invalidKey')}</p>

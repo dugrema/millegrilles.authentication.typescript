@@ -40,7 +40,7 @@ type AuthAndContentProps = {
     logout: MouseEventHandler<MouseEvent>,
 }
 
-function ContentRouter(props: AuthAndContentProps): JSX.Element {
+function ContentRouter(props: AuthAndContentProps): React.JSX.Element {
 
     let mustManuallyAuthenticate = useConnectionStore(state=>state.mustManuallyAuthenticate);
     let connectionAuthenticated = useConnectionStore(state=>state.connectionAuthenticated);

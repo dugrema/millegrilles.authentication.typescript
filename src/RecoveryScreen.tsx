@@ -42,7 +42,7 @@ export default function RecoveryScreen(props: RecoveryScreenProps) {
     const [publicKey, setPublicKey] = useState<string>('');
     const [activationCode, setActivationCode] = useState<string>('');
 
-    const receiveConfirmationCallback = useMemo(()=>proxy(async (event: SubscriptionMessage) => {
+    const receiveConfirmationCallback = useMemo(()=>proxy(async (event: any) => {
         const activation = event.message as ActivationMessage;
         if(activation.certificat && activation.fingerprint_pk) {
             const userIdb = await getUser(username);
@@ -55,30 +55,31 @@ export default function RecoveryScreen(props: RecoveryScreenProps) {
             }
             const certificate = activation.certificat;
             await receiveCertificate(username, certificate);
-
+            
             // Ready, log the user in
             if(workers) {
                 setUsernameStore(username);
-
+        
                 // Activate the server session
                 await performLogin(workers, username, sessionDuration, totpCode);
                 
                 // Authenticate the connection worker
                 await authenticateConnectionWorker(workers, username, true);
-
+        
                 setMustManuallyAuthenticate(false);
                 setConnectionAuthenticated(true);
-
+        
                 // Persist information for next time the screen is loaded
                 setUsernamePersist(username);
                 setSessionDurationPersist(sessionDuration);
-
+        
             } else {
                 console.warn("Workers not initialized");
                 back();
             }
         }
     }), [workers, username, sessionDuration, back, setUsernameStore, setMustManuallyAuthenticate, setConnectionAuthenticated, setUsernamePersist, setSessionDurationPersist]);
+
 
     useEffect(()=>{
         if(!workers || !connectionReady || !activationCode) return;  // Not ready
