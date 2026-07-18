@@ -29,3 +29,4 @@ build.txt
 static/
 src/manifest.build.json
 artifacts/
+staging/

@@ -17,6 +17,7 @@ DIST_DIR = dist
 MANIFEST_FILE = src/manifest.build.json
 API_MAPPING_SIGNED = src/resources/apiMapping.signed.json
 API_MAPPING = src/resources/apiMapping.json
+STAGING_DIR = staging
 
 # --- Environment ---
 NODE_OPTIONS = --openssl-legacy-provider
@@ -51,11 +52,17 @@ build: prepare
 # 3. Package the artifacts
 package: build
 	@echo "==> Packaging artifacts..."
+	@rm -rf $(STAGING_DIR)
 	@mkdir -p $(ARTIFACTS_DIR)
-	@find $(DIST_DIR) -type f \( -name "*.js" -o -name "*.css" -o -name "*.map" -o -name "*.json" -o -name "*.svg" \) -exec gzip -k {} \;
-	@tar -C $(DIST_DIR) -zcf "$(ARTIFACTS_DIR)/$(ARCHIVE_NAME).$(VERSION_FULL).tar.gz" .
+	@mkdir -p $(STAGING_DIR)/files
+	@cp -r catalogue/. $(STAGING_DIR)/
+	@python3 -c 'import json, sys; path=sys.argv[1]; data=json.load(open(path)); data["version"]=sys.argv[2]; json.dump(data, open(path, "w"), indent=2)' $(STAGING_DIR)/metadata.json "$(VERSION_FULL)"
+	@cp -r dist/. $(STAGING_DIR)/files/
+	@find $(STAGING_DIR)/files/ -type f \( -name "*.js" -o -name "*.css" -o -name "*.map" -o -name "*.json" -o -name "*.svg" \) -exec gzip -k {} \;
+	@tar -C $(STAGING_DIR) -zcf "$(ARTIFACTS_DIR)/$(ARCHIVE_NAME).$(VERSION_FULL).tar.gz" .
 	@echo "==> Generating SHA256 digest..."
 	@sha256sum "$(ARTIFACTS_DIR)/$(ARCHIVE_NAME).$(VERSION_FULL).tar.gz" > "$(ARTIFACTS_DIR)/$(ARCHIVE_NAME).$(VERSION_FULL).tar.gz.sha256"
+	@rm -rf $(STAGING_DIR)
 
 # 4. Deploy to remote server
 deploy: package
@@ -66,9 +73,8 @@ deploy: package
 clean:
 	@echo "==> Cleaning..."
 	@rm -rf $(ARTIFACTS_DIR)
+	@rm -rf $(STAGING_DIR)
 	@rm -f $(MANIFEST_FILE)
 	@rm -f $(API_MAPPING)
 	@rm -rf $(DIST_DIR)
 	@rm -rf node_modules
-
-
