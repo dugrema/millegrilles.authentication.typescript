@@ -27,3 +27,5 @@ version.txt
 *.tar.gz
 build.txt
 static/
+src/manifest.build.json
+artifacts/
