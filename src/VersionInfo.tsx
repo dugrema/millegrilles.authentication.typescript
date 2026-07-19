@@ -2,7 +2,7 @@ import { Popover } from 'flowbite-react';
 import useConnectionStore from "./connectionStore";
 import { useTranslation } from 'react-i18next';
 
-import buildManifest from './manifest.build.json';
+import buildManifest from '@manifest-build-json';
 
 function VersionInfo() {
     let { t } = useTranslation();

@@ -30,3 +30,4 @@ static/
 src/manifest.build.json
 artifacts/
 staging/
+build_assets/

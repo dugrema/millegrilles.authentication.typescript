@@ -18,7 +18,11 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "paths": {
+      "@apiMapping-json": ["./src/resources/apiMapping.json"],
+      "@manifest-build-json": ["./src/manifest.build.json"]
+    }
   },
   "include": [
     "src"

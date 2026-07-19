@@ -2,9 +2,17 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import { createHtmlPlugin } from 'vite-plugin-html';
+import path from 'path';
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  resolve: {
+    alias: {
+      // Intercept imports to use the correct files during build
+      '@apiMapping-json': path.resolve(__dirname, 'src/resources/apiMapping.signed.json'),
+      '@manifest-build-json': path.resolve(__dirname, 'build_assets/manifest.build.json'),
+    },
+  },
   plugins: [
     react(),
     createHtmlPlugin({
@@ -64,3 +72,4 @@ export default defineConfig({
     },
   },
 });
+

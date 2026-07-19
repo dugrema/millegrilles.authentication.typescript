@@ -4,7 +4,7 @@ import { ConnectionWorker, MessageResponse, SubscriptionCallback, SubscriptionPa
 // import { ConnectionWorker, MessageResponse, SubscriptionCallback, SubscriptionParameters } from 'millegrilles.reactdeps.typescript'; // TODO
 
 import '@solana/webcrypto-ed25519-polyfill';
-import apiMapping from '../resources/apiMapping.json';
+import apiMapping from '@apiMapping-json';
 import { DemandeCertificat } from '../webauthn';
 
 export type AuthenticationChallengePublicKeyType = {
