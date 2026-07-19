@@ -29,7 +29,7 @@ pipeline {
 
         stage('Deploy') {
             steps {
-                sh "make deploy"
+                sh "rsync artifacts/* ${DEPLOY_RSYNC_WEBAPP_DEST}/authentication"
             }
         }
     }
