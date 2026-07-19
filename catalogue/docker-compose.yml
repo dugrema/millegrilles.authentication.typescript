@@ -48,7 +48,7 @@ services:
         target: webkey.pem
       - source: passwd_redis
         target: passwd.redis.txt
-    hostname: protected-webapi
+    hostname: webapi
     networks:
       - app_net
 
