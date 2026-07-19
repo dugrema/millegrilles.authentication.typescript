@@ -6,6 +6,5 @@
     "fr": "Authentification Portail MilleGrilles et Web API"
   },
   "path": "millegrilles",
-  "showlink": false,
   "security": ["2.prive", "3.protege"]
 }
