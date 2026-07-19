@@ -1,0 +1,9 @@
+{
+  "name": "webapiprotege",
+  "version": "DEV",
+  "labels": {
+    "en": "MilleGrilles Portal Authentication and Web API for 3.protege environment",
+    "fr": "Authentification Portail MilleGrilles et Web API pour environnement 3.protege"
+  },
+  "path": "millegrilles"
+}
