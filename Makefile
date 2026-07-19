@@ -6,7 +6,6 @@ VERSION ?= 2026.3
 BUILD_NUMBER ?= 1
 VERSION_FULL ?= $(VERSION).$(BUILD_NUMBER)
 ARCHIVE_NAME ?= millegrilles_authentication_typescript
-REMOTE_TARGET ?= fs1.maple.maceroc.com:archives/authentication
 
 # --- Helpers ---
 DATE_STR := $(shell date '+%Y-%m-%d %H:%M')
@@ -65,13 +64,9 @@ package: build
 	# Create archive from staging
 	@tar -C $(STAGING_DIR) -zcf "$(ARTIFACTS_DIR)/$(ARCHIVE_NAME).$(VERSION_FULL).tar.gz" .
 	@echo "==> Generating SHA256 digest..."
-	@sha256sum "$(ARTIFACTS_DIR)/$(ARCHIVE_NAME).$(VERSION_FULL).tar.gz" > "$(ARTIFACTS_DIR)/$(ARCHIVE_NAME).$(VERSION_FULL).tar.gz.sha256"
+	@sha256sum "$(ARTIFACTS_DIR)/$(ARCHIVE_NAME).$(VERSION_FULL).tar.gz"
 	@rm -rf $(STAGING_DIR) $(BUILD_ASSETS_DIR)
 
-# 4. Deploy to remote server
-deploy: package
-	@echo "==> Deploying artifacts to $(REMOTE_TARGET)..."
-	@rsync -avz $(ARTIFACTS_DIR)/ $(REMOTE_TARGET)
 
 # Clean up build artifacts
 clean:
