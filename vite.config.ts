@@ -5,12 +5,20 @@ import { createHtmlPlugin } from 'vite-plugin-html';
 import path from 'path';
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({command}) => {
+
+  const isBuild = command === 'build';
+
+  return {
   resolve: {
     alias: {
       // Intercept imports to use the correct files during build
-      '@apiMapping-json': path.resolve(__dirname, 'src/resources/apiMapping.signed.json'),
-      '@manifest-build-json': path.resolve(__dirname, 'build_assets/manifest.build.json'),
+      '@apiMapping-json': isBuild
+        ? path.resolve(__dirname, 'src/resources/apiMapping.signed.json')
+        : path.resolve(__dirname, 'src/resources/apiMapping.json'),
+      '@manifest-build-json': isBuild 
+        ? path.resolve(__dirname, 'build_assets/manifest.build.json')
+        : path.resolve(__dirname, 'src/manifest.build.json'),
     },
   },
   plugins: [
@@ -71,5 +79,5 @@ export default defineConfig({
       },
     },
   },
-});
+}});
 
