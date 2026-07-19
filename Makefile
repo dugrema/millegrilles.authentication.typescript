@@ -74,6 +74,5 @@ clean:
 	@rm -rf $(ARTIFACTS_DIR)
 	@rm -rf $(STAGING_DIR)
 	@rm -rf $(BUILD_ASSETS_DIR)
-	@rm -f $(MANIFEST_FILE)
 	@rm -rf $(DIST_DIR)
 	@rm -rf node_modules
