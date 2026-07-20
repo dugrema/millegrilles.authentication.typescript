@@ -72,8 +72,29 @@ package: build
 			sha256sum "$(ARTIFACTS_DIR)/$$NAME.$(VERSION_FULL).tar.gz"; \
 		fi; \
 	done
-	@rm -rf $(STAGING_DIR) $(BUILD_ASSETS_DIR)
+	@rm -rf $(STAGING_DIR) ${BUILD_ASSETS_DIR}
 
+deploy: build
+	@echo "==> Deploying artifacts..."
+	@for dir in catalogue/*; do \
+		if [ -d "$$dir" ]; then \
+			SUBDIR=$$(basename "$$dir"); \
+			echo "==> Processing bundle: $$SUBDIR"; \
+			if [ -f "$(dir)/metadata.json" ]; then \
+				python3 -c 'import json, sys; \
+					path = sys.argv[1]; \
+					data = json.load(open(path)); \
+					data["version"] = sys.argv[2]; \
+					json.dump(data, open(path, "w"), indent=2)' $(dir)/metadata.json "$(VERSION_FULL)"; \
+				NAME=$$(python3 -c 'import json; print(json.load(open("$(dir)/metadata.json"))["name"])'); \
+			else \
+				NAME=$$SUBDIR; \
+			fi; \
+			echo "==> Deploying $$NAME"; \
+			rsync "$(ARTIFACTS_DIR)/$$NAME.$(VERSION_FULL).tar.gz" ${DEPLOY_RSYNC_WEBAPP_DEST}/webapi/${NAME}/; \
+			${DEPLOY_CATALOGUE_UPDATE_COMMAND} --baseurl https://libs.millegrilles.com/archives/webapi --archive archives/webapi/"$$NAME.$(VERSION_FULL).tar.gz"; \
+		fi; \
+	done
 
 
 # Clean up build artifacts
