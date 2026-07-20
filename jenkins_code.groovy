@@ -21,15 +21,9 @@ pipeline {
             }
         }
 
-        stage('Build & Package') {
+        stage('Build & Package & Deploy') {
             steps {
-                sh "make package VERSION_FULL=${VBUILD} ARCHIVE_NAME=${ARCHIVE_NAME}"
-            }
-        }
-
-        stage('Deploy') {
-            steps {
-                sh "rsync artifacts/* ${DEPLOY_RSYNC_WEBAPP_DEST}/authentication"
+                sh "make deploy VERSION_FULL=${VBUILD} ARCHIVE_NAME=${ARCHIVE_NAME}"
             }
         }
     }

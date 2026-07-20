@@ -74,7 +74,7 @@ package: build
 	done
 	@rm -rf $(STAGING_DIR) ${BUILD_ASSETS_DIR}
 
-deploy: build
+deploy: package
 	@echo "==> Deploying artifacts..."
 	@for dir in catalogue/*; do \
 		if [ -d "$$dir" ]; then \
