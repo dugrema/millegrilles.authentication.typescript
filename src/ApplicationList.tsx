@@ -617,46 +617,4 @@ async function processApplicationListResultV2(workers: AppWorkers, message: Repo
     });
 
     return finalList;
-
-    // // Update names
-    // apps.forEach(app=>{
-    //     app.name_property = app.name_property[0].toLocaleUpperCase() + app.name_property.slice(1);
-    //     app.name_property = app.name_property.replace(/_/g, ' ');
-
-    //     // Default
-    //     let name = app.name_property[0].toLocaleUpperCase() + app.name_property.slice(1);
-    //     name = name.replace(/_/g, ' ');
-    //     app.name = name;
-
-    //     // Override default if labels found
-    //     for(let language of languages) {
-    //         if(app.labels && app.labels[language]) {
-    //             let languageLabels = app.labels[language];
-    //             app.name = languageLabels.name;
-    //             app.description = languageLabels.description;
-    //             break;
-    //         }
-    //     }
-        
-    //     // Adapt url to local hostname:port
-    //     try {
-    //         let appUrl = new URL(app.url);
-    //         appUrl.hostname = urlLocal.hostname;
-    //         appUrl.port = urlLocal.port;
-    //         app.url = appUrl.href;  // Override app url
-    //     } catch(err) {
-    //         console.warn("Error mapping application url %s: %O", app.url, err);
-    //     }
-
-    // })
-
-    // // Sort
-    // apps.sort((a, b) => {
-    //     let valA = a.name || a.name_property;
-    //     let valB = b.name || b.name_property;
-    //     return valA.toLocaleLowerCase().localeCompare(valB.toLocaleLowerCase())
-    // });
-
-    // return apps;
-    return [];
 }
