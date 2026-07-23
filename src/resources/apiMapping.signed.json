@@ -1,16 +1,16 @@
 {
-  "pubkey": "b0f1885cf526c750dc6db18eae85d8214a5ef6d94d4103785b0b811c618437f9",
-  "estampille": 1724446144,
+  "pubkey": "3a5cd4ef17d2d1dd6829fe591818dc0d7b40b3a0816431f18cc86b536ccffaca",
+  "estampille": 1784832714,
   "kind": 2,
-  "contenu": "{\"commands\":[{\"action\":\"inscrireUsager\"},{\"action\":\"ajouterCsrRecovery\"},{\"action\":\"genererChallenge\"},{\"action\":\"ajouterCle\"},{\"action\":\"signerCompteUsager\"},{\"action\":\"ajouterDelegationSignee\"}],\"defaults\":{\"domain\":\"CoreMaitreDesComptes\",\"exchange\":\"2.prive\"},\"requests\":[{\"action\":\"listeApplicationsDeployees\",\"domain\":\"CoreTopologie\"},{\"action\":\"listeUserappsDeployees\",\"domain\":\"CoreTopologie\"},{\"action\":\"chargerUsager\",\"exchange\":\"1.public\"},{\"action\":\"getCsrRecoveryParcode\"}],\"subscriptions\":{\"userAccountEvents\":{\"exchanges\":[\"2.prive\"],\"routingKeys\":[\"evenement.CoreMaitreDesComptes.{USER_ID}.majCompteUsager\"]}}}",
+  "contenu": "{\"commands\":[{\"action\":\"inscrireUsager\"},{\"action\":\"ajouterCsrRecovery\"},{\"action\":\"genererChallenge\"},{\"action\":\"ajouterCle\"},{\"action\":\"signerCompteUsager\"},{\"action\":\"ajouterDelegationSignee\"}],\"defaults\":{\"domain\":\"CoreMaitreDesComptes\",\"exchange\":\"2.prive\"},\"requests\":[{\"action\":\"listeApplicationsDeployees\",\"domain\":\"CoreTopologie\"},{\"action\":\"listeUserappsDeployees\",\"domain\":\"CoreTopologie\"},{\"action\":\"listeUserappsDeployeesV2\",\"domain\":\"CoreTopologie\"},{\"action\":\"chargerUsager\",\"exchange\":\"1.public\"},{\"action\":\"getCsrRecoveryParcode\"}],\"subscriptions\":{\"userAccountEvents\":{\"exchanges\":[\"2.prive\"],\"routingKeys\":[\"evenement.CoreMaitreDesComptes.{USER_ID}.majCompteUsager\"]}}}",
   "routage": {
     "action": "configuration",
     "domaine": "webapi"
   },
-  "id": "2d7118592114e5e9c4446ee056e8498738b6a83ea9a278858b1c64e4ca7f51f0",
-  "sig": "8384dae883c1eb0a48cf2d1ef5bfbfd40049c0a88d9366aac8d40b1e9dc0640c37294e31d887d013ab1494422dfc38c0416846344568262e73f849d44f86c30c",
+  "id": "cc3e67a20bd7663ead7426172158c49f1a67442beed2d6171a7b2e9dc54aeb19",
+  "sig": "204fb8d09a2ce75b8d0d47bf6017171ff09226b752c418ee06663817fda9c0ae647bee1fcb4c98bc7bace23fba18a0548c3b9777af30a41e63df4306ab6c130a",
   "certificat": [
-    "-----BEGIN CERTIFICATE-----\nMIIBqjCCAVygAwIBAgIUerM/X77+89WoWIQ+wkw5mkB5xTowBQYDK2VwMBYxFDAS\nBgNVBAMTC01pbGxlR3JpbGxlMB4XDTI0MDgwMjE3NDEyOFoXDTI0MDkwMjE3NDE0\nOFowazESMBAGA1UEAwwJU2lnbmF0dXJlMRIwEAYDVQQLDAlzaWduYXR1cmUxQTA/\nBgNVBAoMOHplWW5jUnFFcVo2ZVRFbVVaOHdoSkZ1SEc3OTZlU3ZDVFdFNE00MzJp\nelhycDIyYkF0d0dtN0pmMCowBQYDK2VwAyEAsPGIXPUmx1DcbbGOroXYIUpe9tlN\nQQN4WwuBHGGEN/mjZzBlMCMGBCoDBAEEG3NpZ25hdHVyZSxjYXRhbG9ndWVzLHdl\nYmFwaTAfBgNVHSMEGDAWgBTTiP/MFw4DDwXqQ/J2LLYPRUkkETAdBgNVHQ4EFgQU\nUOipJfCK+blx0kFPnpoo7RGtHGgwBQYDK2VwA0EAH9awzWbbhOAzgSg10E97IfVm\nYUXhNI6rEs5lViUQk1Yb3cybTUpqPn1GRtYfbEp02279zVdXm1rzHEgzJehoBA==\n-----END CERTIFICATE-----"
+    "-----BEGIN CERTIFICATE-----\nMIIBqjCCAVygAwIBAgIUInJmSRVHTU7opafKBzfdZQF+QPYwBQYDK2VwMBYxFDAS\nBgNVBAMTC01pbGxlR3JpbGxlMB4XDTI2MDcyMzE4NDk0NFoXDTI2MDgyMzE4NTAw\nNFowazESMBAGA1UEAwwJU2lnbmF0dXJlMRIwEAYDVQQLDAlzaWduYXR1cmUxQTA/\nBgNVBAoMOHplWW5jUnFFcVo2ZVRFbVVaOHdoSkZ1SEc3OTZlU3ZDVFdFNE00MzJp\nelhycDIyYkF0d0dtN0pmMCowBQYDK2VwAyEAOlzU7xfS0d1oKf5ZGBjcDXtAs6CB\nZDHxjMhrU2zP+sqjZzBlMCMGBCoDBAEEG3NpZ25hdHVyZSxjYXRhbG9ndWVzLHdl\nYmFwaTAfBgNVHSMEGDAWgBTTiP/MFw4DDwXqQ/J2LLYPRUkkETAdBgNVHQ4EFgQU\nFtt521B1H66dP/m2mofH7k9AyMYwBQYDK2VwA0EAhtFIotWng+9KGnQUhNQSgMZd\nQAgqcNizkmG5Jf1Ny1I2/w/hu6CKWFpfbcMxYsyxZcB1wBwA1JtKLiZPKsNPCg==\n-----END CERTIFICATE-----"
   ],
   "millegrille": "-----BEGIN CERTIFICATE-----\nMIIBQzCB9qADAgECAgoHBykXJoaCCWAAMAUGAytlcDAWMRQwEgYDVQQDEwtNaWxs\nZUdyaWxsZTAeFw0yMjAxMTMyMjQ3NDBaFw00MjAxMTMyMjQ3NDBaMBYxFDASBgNV\nBAMTC01pbGxlR3JpbGxlMCowBQYDK2VwAyEAnnixameVCZAzfx4dO+L63DOk/34I\n/TC4fIA1Rxn19+KjYDBeMA8GA1UdEwEB/wQFMAMBAf8wCwYDVR0PBAQDAgLkMB0G\nA1UdDgQWBBTTiP/MFw4DDwXqQ/J2LLYPRUkkETAfBgNVHSMEGDAWgBTTiP/MFw4D\nDwXqQ/J2LLYPRUkkETAFBgMrZXADQQBSb0vXhw3pw25qrWoMjqROjawe7/kMlu7p\nMJyb/Ppa2C6PraSVPgJGWKl+/5S5tBr58KFNg+0H94CH4d1VCPwI\n-----END CERTIFICATE-----"
 }

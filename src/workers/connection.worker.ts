@@ -6,6 +6,7 @@ import { ConnectionWorker, MessageResponse, SubscriptionCallback, SubscriptionPa
 import '@solana/webcrypto-ed25519-polyfill';
 import apiMapping from '@apiMapping-json';
 import { DemandeCertificat } from '../webauthn';
+import { ReponseListeApplicationsDeployeesV2 } from './responseTypes';
 
 export type AuthenticationChallengePublicKeyType = {
     allowCredentials?: Array<{id: string, type: string}>,
@@ -135,10 +136,12 @@ export class AuthenticationConnectionWorker extends ConnectionWorker {
         return response;
     }
 
-    async getApplicationList() {
+    async getApplicationList(): Promise<ReponseListeApplicationsDeployeesV2> {
         if(!this.connection) throw new Error("Connection is not initialized");
         // return this.connection.sendRequest({}, 'CoreTopologie', 'listeApplicationsDeployees', {eventName: 'request_application_list'});
-        return this.connection.sendRequest({}, 'CoreTopologie', 'listeUserappsDeployees', {eventName: 'request_userapps_list'});
+        // return this.connection.sendRequest({}, 'CoreTopologie', 'listeUserappsDeployees', {eventName: 'request_userapps_list'});
+        return this.connection.sendRequest({}, 'CoreTopologie', 'listeUserappsDeployeesV2', {eventName: 'request_userapps_list_v2'}) as Promise<ReponseListeApplicationsDeployeesV2>;
+        // return this.connection.sendRequest({}, 'CoreTopologie', 'listeUserappsDeployeesV2') as Promise<ReponseListeApplicationsDeployeesV2>;
     }
 
     /**

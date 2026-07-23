@@ -20,6 +20,7 @@ import { MessageResponse, SubscriptionMessage } from 'millegrilles.reactdeps.typ
 import useConnectionStore from './connectionStore';
 import { certificates, messageStruct } from 'millegrilles.cryptography';
 import { prepareAuthentication, PrepareAuthenticationResult, signAuthenticationRequest } from './webauthn';
+import { ApplicationInfo, ReponseListeApplicationsDeployeesV2 } from './workers/responseTypes';
 
 type ApplicationListProps = {
     logout: MouseEventHandler<MouseEvent>,
@@ -193,7 +194,8 @@ function InstalledApplications() {
             .then(async result=>{
                 if(!workers) throw new Error("Workers not initialized");
                 if(result.ok) {
-                    let apps = await processApplicationListResult(workers, result, languages);
+                    console.debug("Applications list (V2)", result);
+                    let apps = await processApplicationListResultV2(workers, result, languages);
                     setApps(apps);
                 }
             })
@@ -516,4 +518,140 @@ async function processApplicationListResult(workers: AppWorkers, message: Messag
     });
 
     return apps;
+}
+
+async function processApplicationListResultV2(workers: AppWorkers, message: ReponseListeApplicationsDeployeesV2, languages: readonly string[]): Promise<Array<InstalledApplicationType>> {
+    const urlLocal = new URL(window.location.href)
+
+    if(!message.ok) throw new Error(`Error receiving response: ${message.err}`)
+
+    const apps = message.results;
+
+    // Read the "serveur" attachement to get the local instance_id from its certificate.
+    const serverMessage = message['__original']?.attachements?.serveur as messageStruct.MilleGrillesMessage;
+    const verifiedServerMessage = await workers?.connection?.verifyMessage(serverMessage);
+    
+    const certificate = verifiedServerMessage['__certificate'] as certificates.CertificateWrapper;
+    if(!certificate) throw new Error('Invalid "serveur" attachement');
+    const instanceId = certificate.extensions?.commonName;
+
+    const instanceApplications = apps.filter(instance=>instance.instance_id === instanceId).pop();
+    if(!instanceApplications) throw new Error("No application information was received for this instance");
+
+    console.debug("Instance applications", instanceApplications);
+
+    // Filter out applications that should not be shown
+    const filteredApplications: Record<string, ApplicationInfo> = {};
+    for (const [appName, appInfo] of Object.entries(instanceApplications.applications)) {
+        console.log(`Application Name: ${appName}`);
+        console.log(`Version: ${appInfo.version}`);
+        
+        // Filter out API only values
+        appInfo.web = appInfo.web?.filter(web=>!web.api);
+
+        // Accessing nested arrays like web components
+        appInfo.web?.forEach(web => {
+            console.log(`- Web port: ${web.port}`);
+        });
+
+        // Only keep apps with at least one web entry
+        if(appInfo.web?.length) {
+            filteredApplications[appName] = appInfo;
+        }
+    }
+
+    console.debug("Remaining apps: ", filteredApplications);
+
+    const finalList = [] as Array<InstalledApplicationType>;
+    const language = languages[0];
+    const baseLanguage = language?language.split('-')[0]:language;
+
+    for (const [appName, appInfo] of Object.entries(filteredApplications)) {
+        if(!appInfo.web) continue;  // Should have be filtered out already
+        for (const webEntry of appInfo.web) {
+            // Adapt url to local hostname:port
+            let url = null as string | null;
+            try {
+                if(webEntry.url) {
+                    const appUrl = new URL(webEntry.url);
+                    appUrl.hostname = urlLocal.hostname;
+                    appUrl.port = urlLocal.port;
+                    url = appUrl.href;  // Override app url
+                }
+            } catch(err) {
+                console.warn("Error mapping application url %s: %O", webEntry.url, err);
+            }
+
+            let displayedName = appName;
+            const labels = webEntry.labels || appInfo.labels;
+            if(language && labels) {
+                displayedName = labels[language] || labels[baseLanguage] || appName;
+            }
+
+            const entry = {
+                name: displayedName,
+                description: undefined,
+                application: appName,
+                instance_id: instanceApplications.instance_id,
+                name_property: appName,
+                securite: appInfo.securite || instanceApplications.securite,
+                url: url || webEntry.path || appInfo.path,
+                supporte_usagers: true,
+                labels: appInfo.labels
+            } as InstalledApplicationType;
+            finalList.push(entry);
+        }
+    }
+
+    // Sort
+    console.debug("Sort in language: ", language);
+    finalList.sort((a, b) => {
+        const valA = a.name || a.name_property;
+        const valB = b.name || b.name_property;
+        return valA.toLocaleLowerCase().localeCompare(valB.toLocaleLowerCase())
+    });
+
+    return finalList;
+
+    // // Update names
+    // apps.forEach(app=>{
+    //     app.name_property = app.name_property[0].toLocaleUpperCase() + app.name_property.slice(1);
+    //     app.name_property = app.name_property.replace(/_/g, ' ');
+
+    //     // Default
+    //     let name = app.name_property[0].toLocaleUpperCase() + app.name_property.slice(1);
+    //     name = name.replace(/_/g, ' ');
+    //     app.name = name;
+
+    //     // Override default if labels found
+    //     for(let language of languages) {
+    //         if(app.labels && app.labels[language]) {
+    //             let languageLabels = app.labels[language];
+    //             app.name = languageLabels.name;
+    //             app.description = languageLabels.description;
+    //             break;
+    //         }
+    //     }
+        
+    //     // Adapt url to local hostname:port
+    //     try {
+    //         let appUrl = new URL(app.url);
+    //         appUrl.hostname = urlLocal.hostname;
+    //         appUrl.port = urlLocal.port;
+    //         app.url = appUrl.href;  // Override app url
+    //     } catch(err) {
+    //         console.warn("Error mapping application url %s: %O", app.url, err);
+    //     }
+
+    // })
+
+    // // Sort
+    // apps.sort((a, b) => {
+    //     let valA = a.name || a.name_property;
+    //     let valB = b.name || b.name_property;
+    //     return valA.toLocaleLowerCase().localeCompare(valB.toLocaleLowerCase())
+    // });
+
+    // return apps;
+    return [];
 }
