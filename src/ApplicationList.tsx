@@ -576,7 +576,12 @@ async function processApplicationListResultV2(workers: AppWorkers, message: Repo
                     const appUrl = new URL(webEntry.url);
                     appUrl.hostname = urlLocal.hostname;
                     appUrl.port = urlLocal.port;
-                    url = appUrl.href;  // Override app url
+                    url = appUrl.href;
+                } else if(webEntry.port || webEntry.path) {
+                    const appUrl = new URL(urlLocal.href);
+                    appUrl.port = ''+webEntry.port || appUrl.port;
+                    appUrl.pathname = webEntry.path || urlLocal.pathname;
+                    url = appUrl.href;
                 }
             } catch(err) {
                 console.warn("Error mapping application url %s: %O", webEntry.url, err);
