@@ -1,9 +1,14 @@
 {
   "name": "webapi",
   "version": "DEV",
+  "securite": "2.prive",
   "labels": {
     "en": "MilleGrilles Portal Authentication and Web API",
     "fr": "Authentification Portail MilleGrilles et Web API"
   },
-  "path": "millegrilles"
+  "path": "millegrilles",
+  "web": [{
+    "path": "/millegrilles",
+    "api": true
+  }]
 }
