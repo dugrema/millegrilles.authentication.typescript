@@ -18,7 +18,7 @@ services:
         - millegrilleswebapisession
     command: ["-m", "millegrilles_web"]
     environment:
-      - MQ_HOSTNAME=${MQ_HOST}
+      - MQ_HOSTNAME=${MQ_HOSTNAME}
       - MQ_PORT=${MQ_PORT}
       - REDIS_HOSTNAME=redis
       - REDIS_PORT=6379
@@ -27,6 +27,7 @@ services:
       - KEY_PATH=/run/secrets/key.pem
       - CA_PATH=/run/secrets/millegrille.cert.pem
       - WEB_PORT=1443
+      # - DEV=1
     deploy:
       resources:
         limits:
