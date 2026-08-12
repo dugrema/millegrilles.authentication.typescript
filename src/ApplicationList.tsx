@@ -260,14 +260,18 @@ function VerifyCertificateRenewal() {
                 if(!workers) return;
 
                 // Check if the certificate is about to expire
-                let certificate = await workers.connection.getMessageFactoryCertificate();
+                const certificate = await workers.connection.getMessageFactoryCertificate();
                 if(certificate) {
-                    let due = await prepareRenewalIfDue(workers, certificate);
-                    if(due) {
-                        // A new request was generated
-                        // Flag the certificate as obsolete/renewable
-                        setCertificateRenewable(true);
-                        return;
+                    try {
+                        const due = await prepareRenewalIfDue(workers, certificate);
+                        if(due) {
+                            // A new request was generated
+                            // Flag the certificate as obsolete/renewable
+                            setCertificateRenewable(true);
+                            return;
+                        }
+                    } catch(err) {
+                        console.warn("Error checking user certificate for renewal: %s", err);
                     }
                 }
                 

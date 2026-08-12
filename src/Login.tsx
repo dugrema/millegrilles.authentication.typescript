@@ -152,28 +152,30 @@ function Login() {
     const prepareSignatureHandler = useCallback(async (webauthnChallenge: AuthenticationChallengeType)=>{
         // Check if the user exists locally and verify if certificate should be renewed.
         let csr: string | null = null;
-        let user = await getUser(username);
+        const user = await getUser(username);
         if(workers) {
-            if(!user?.request) {
+            csr = user?.request?.pem || null;
+            if (!csr) {
                 if(user?.certificate) {
-                    let wrapper = certificates.wrapperFromPems(user.certificate.certificate);
+                    const wrapper = certificates.wrapperFromPems(user.certificate.certificate);
                     wrapper.populateExtensions();
-                    let entry = await prepareRenewalIfDue(workers, wrapper);
-                    if(entry) {
-                        csr = entry.pem;
+                    try {
+                        const entry = await prepareRenewalIfDue(workers, wrapper);
+                        if(entry) {
+                            csr = entry.pem;
+                        }
+                    } catch(err) {
+                        console.warn("Error checking user certificate for renewal during login: %s", err);
                     }
                 } else {
                     // There is no certificate. Generate a CSR
-                    let entry = await createCertificateRequest(workers, username);
+                    const entry = await createCertificateRequest(workers, username);
                     csr = entry.pem;
                 }
-            } else if(user?.request) {
-                // Use the CSR for the signature
-                csr = user?.request.pem;
             }
         }
 
-        let preparedChallenge = await prepareAuthentication(username, webauthnChallenge, csr, false);
+        const preparedChallenge = await prepareAuthentication(username, webauthnChallenge, csr, false);
         setWebauthnChallenge(preparedChallenge);
     }, [workers, username, setWebauthnChallenge]);
 
@@ -705,25 +707,27 @@ export async function prepareRenewalIfDue(workers: AppWorkers, certificate: cert
     const username = certificate.extensions?.commonName;
     const userId = certificate.extensions?.userId;
 
-    if(!username || !userId) throw new Error("Invalid certificate, no commonName or userId");
+    if(!username || !userId) throw new Error("Invalid user certificate, no commonName or userId");
 
-    if(now > expiration) {
-        // The certificate is expired. Remove it and generate new request.
-        await clearCertificate(username);
-        const entry = await createCertificateRequest(workers, username, userId);
-        return entry;
-    } else {
-        // Check if the certificate is about to expire (>2/3 duration)
-        const notBefore = certificate.certificate.notBefore;
-        const totalDuration = expiration.getTime() - notBefore.getTime();
-        const canRenewTs = Math.floor(totalDuration * 2/3 + notBefore.getTime());
-        const canRenew = new Date(canRenewTs);
-
-        if(now > canRenew) {
-            // Generate a new certificate request
-            const userId: string | undefined = undefined;  // TODO : get userId
+    if(expiration) {
+        if(now > expiration) {
+            // The certificate is expired. Remove it and generate new request.
+            await clearCertificate(username);
             const entry = await createCertificateRequest(workers, username, userId);
             return entry;
+        } else {
+            // Check if the certificate is about to expire (>2/3 duration)
+            const notBefore = certificate.certificate.notBefore;
+            const totalDuration = expiration.getTime() - notBefore.getTime();
+            const canRenewTs = Math.floor(totalDuration * 2/3 + notBefore.getTime());
+            const canRenew = new Date(canRenewTs);
+
+            if(now > canRenew) {
+                // Generate a new certificate request
+                const userId: string | undefined = undefined;  // TODO : get userId
+                const entry = await createCertificateRequest(workers, username, userId);
+                return entry;
+            }
         }
     }
 
