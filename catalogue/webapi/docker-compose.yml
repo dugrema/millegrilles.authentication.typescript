@@ -1,6 +1,6 @@
 services:
   webapi:
-    image: registry.millegrilles.com/millegrilles/web_python:2026.4.10
+    image: registry.millegrilles.com/millegrilles/web_python:2026.4.11
     x-millegrilles-certificat:
       roles:
         - private_webapi
