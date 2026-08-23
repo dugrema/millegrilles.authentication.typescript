@@ -185,7 +185,7 @@ function Login() {
 
         let timeout = setTimeout(async () => {
             let userInfo = await userLoginVerification(username);
-            console.debug("User info", userInfo);
+            // console.debug("User info", userInfo);
 
             let webauthnChallenge = userInfo?.authentication_challenge;
             if(!userInfo) {
@@ -801,9 +801,9 @@ async function certificateAuthentication(workers: AppWorkers, challenge: string,
     const data = {certificate_challenge: challenge, activation: true, dureeSession: sessionDuration};
     // Sign as a command
     const command = await workers.connection.signAuthentication(data);
-    console.debug("certificateAuthentication Data", command);
+    // console.debug("certificateAuthentication Data", command);
     const authenticationResult = await axios.post('/auth/authentifier_usager', command);
-    console.debug("certificateAuthentication Response", authenticationResult);
+    // console.debug("certificateAuthentication Response", authenticationResult);
     const responseMessage = authenticationResult.data as messageStruct.MilleGrillesMessage;
     const authenticationResponse = JSON.parse(responseMessage.contenu) as AuthenticationResponseType;
     return authenticationResponse
@@ -826,11 +826,11 @@ async function authenticateHttpSession(workers: AppWorkers, username: string, de
     //      TouchID sur iOS.
     const data = await signAuthenticationRequest(username, demandeCertificat, publicKey, sessionDuration);
 
-    console.debug("authenticateHttpSession Requete data: ", data);
+    // console.debug("authenticateHttpSession Requete data: ", data);
     const resultatAuthentification = await axios.post('/auth/authentifier_usager', data);
-    console.debug("authenticateHttpSession Response data", resultatAuthentification);
+    // console.debug("authenticateHttpSession Response data", resultatAuthentification);
     const authResponse = resultatAuthentification.data;
-    console.debug("authenticateHttpSession Auth response data: ", authResponse.contenu)
+    // console.debug("authenticateHttpSession Auth response data: ", authResponse.contenu)
     const responseContent = JSON.parse(authResponse.contenu) as AuthenticationResponseType;
 
     if(responseContent.auth && responseContent.userId) {
@@ -917,9 +917,9 @@ async function authenticateTotp(workers: AppWorkers, username: string, totpCode:
         }
     }
     const command = {totpCode, dureeSession: sessionDuration, demandeCertificat, activation: true};
-    console.debug("authenticateTotp Data", command);
+    // console.debug("authenticateTotp Data", command);
     const authenticationResult = await axios.post('/auth/authentifier_usager', command);
-    console.debug("authenticateTotp Response", command);
+    // console.debug("authenticateTotp Response", command);
     const responseMessage = authenticationResult.data as messageStruct.MilleGrillesMessage;
     const authenticationResponse = JSON.parse(responseMessage.contenu) as AuthenticationResponseType;
 
