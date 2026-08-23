@@ -341,9 +341,14 @@ function Buttons(props: ButtonsProps) {
 
     return (
         <>
-            <ActionButton onClick={props.handleLogin} disabled={props.disabled || !connectionReady} mainButton={true}>
-                {t('buttons.next')}
-            </ActionButton>
+            <div>
+                <ActionButton onClick={props.handleLogin} disabled={props.disabled || !connectionReady} mainButton={true}>
+                    {t('buttons.next')}
+                </ActionButton>
+                <a href="/auth/deconnecter_usager" className="btn inline-block text-center bg-slate-700 hover:bg-slate-600 active:bg-slate-500 disabled:bg-slate-800">
+                    {t('buttons.reset')}
+                </a>
+            </div>
         </>
     )
 }
@@ -796,7 +801,9 @@ async function certificateAuthentication(workers: AppWorkers, challenge: string,
     const data = {certificate_challenge: challenge, activation: true, dureeSession: sessionDuration};
     // Sign as a command
     const command = await workers.connection.signAuthentication(data);
+    console.debug("certificateAuthentication Data", command);
     const authenticationResult = await axios.post('/auth/authentifier_usager', command);
+    console.debug("certificateAuthentication Response", authenticationResult);
     const responseMessage = authenticationResult.data as messageStruct.MilleGrillesMessage;
     const authenticationResponse = JSON.parse(responseMessage.contenu) as AuthenticationResponseType;
     return authenticationResponse
@@ -819,8 +826,11 @@ async function authenticateHttpSession(workers: AppWorkers, username: string, de
     //      TouchID sur iOS.
     const data = await signAuthenticationRequest(username, demandeCertificat, publicKey, sessionDuration);
 
-    const resultatAuthentification = await axios.post('/auth/authentifier_usager', data)
-    const authResponse = resultatAuthentification.data
+    console.debug("authenticateHttpSession Requete data: ", data);
+    const resultatAuthentification = await axios.post('/auth/authentifier_usager', data);
+    console.debug("authenticateHttpSession Response data", resultatAuthentification);
+    const authResponse = resultatAuthentification.data;
+    console.debug("authenticateHttpSession Auth response data: ", authResponse.contenu)
     const responseContent = JSON.parse(authResponse.contenu) as AuthenticationResponseType;
 
     if(responseContent.auth && responseContent.userId) {
@@ -907,7 +917,9 @@ async function authenticateTotp(workers: AppWorkers, username: string, totpCode:
         }
     }
     const command = {totpCode, dureeSession: sessionDuration, demandeCertificat, activation: true};
+    console.debug("authenticateTotp Data", command);
     const authenticationResult = await axios.post('/auth/authentifier_usager', command);
+    console.debug("authenticateTotp Response", command);
     const responseMessage = authenticationResult.data as messageStruct.MilleGrillesMessage;
     const authenticationResponse = JSON.parse(responseMessage.contenu) as AuthenticationResponseType;
 

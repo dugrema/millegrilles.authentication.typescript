@@ -553,15 +553,16 @@ export class ConnectionWorker {
         return this.connection.prepareMessageFactory(signingKey);
     }
 
-    async signAuthentication(data: {certificate_challenge: string, activation?: boolean, dureeSession?: number}): Promise<string> {
+    async signAuthentication(data: {certificate_challenge: string, activation?: boolean, dureeSession?: number}): Promise<messageStruct.MilleGrillesMessage | null> {
         // Sign an auth command.
-        let command = await this.connection?.createRoutedMessage(
+        const command = await this.connection?.createRoutedMessage(
             messageStruct.MessageKind.Command, 
             data, 
             {domaine: 'auth', action: 'authentifier_usager'}
         );
         // Serialize to string
-        return JSON.stringify(command);
+        //return JSON.stringify(command);
+        return command || null;
     }
 }
 

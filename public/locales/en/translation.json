@@ -32,7 +32,8 @@
         "cancel": "Cancel",
         "register": "Register",
         "done": "Done",
-        "addAnother": "Add another"
+        "addAnother": "Add another",
+        "reset": "Reset"
     },
     "screens": {
         "recovery": {
