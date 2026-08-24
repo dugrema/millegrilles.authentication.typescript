@@ -5,18 +5,16 @@ import { ConnectionCallbackParameters } from "millegrilles.reactdeps.typescript"
 import useWorkers, { AppWorkers, initWorkers, InitWorkersResult } from "./workers";
 import useConnectionStore from "../connectionStore";
 
+let _initHasRun = false;
+
 /**
  * Initializes the Web Workers and a few other elements to connect to the back-end.
  */
 function InitializeWorkers() {
     const workersReady = useConnectionStore((state) => state.workersReady);
     const workersRetry = useConnectionStore((state) => state.workersRetry);
-    const incrementWorkersRetry = useConnectionStore(
-        (state) => state.incrementWorkersRetry
-    );
-    const setWorkersRetryReady = useConnectionStore(
-        (state) => state.setWorkersRetryReady
-    );
+    const incrementWorkersRetry = useConnectionStore((state) => state.incrementWorkersRetry);
+    const setWorkersRetryReady = useConnectionStore((state) => state.setWorkersRetryReady);
     const setWorkersReady = useConnectionStore((state) => state.setWorkersReady);
     const setFiche = useConnectionStore((state) => state.setFiche);
     const setUsername = useConnectionStore((state) => state.setUsername);
@@ -47,7 +45,7 @@ function InitializeWorkers() {
         incrementWorkersRetry();
 
         // Stop loading the page when too many retries.
-        if (workersRetry.count > 4) {
+        if (workersRetry.count > 0) {
             const error = new Error("Too many retries");
             // @ts-ignore
             error.code = 1;

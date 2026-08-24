@@ -371,15 +371,16 @@ export default class ConnectionSocketio {
      * @returns Response from the back-end component
      */
     async sendRequest(message: Object, domain: string, action: string, props?: SendProps): Promise<MessageResponse> {
-        let routing: {domaine: string, action: string, partition?: string} = {domaine: domain, action};
+        if(!this.messageFactory) throw new Error("MessageFactory not initialized");
+        const routing: {domaine: string, action: string, partition?: string} = {domaine: domain, action};
         if(props?.partition) routing.partition = props.partition;
-        let request = await this.messageFactory?.createRoutedMessage(messageStruct.MessageKind.Request, message, routing, new Date());
+        const request = await this.messageFactory.createRoutedMessage(messageStruct.MessageKind.Request, message, routing, new Date());
         if(!request) throw new Error("Error generating request: messageFactory.createRoutedMessage returned null");
         if(props?.attachments) request.attachements = props.attachments;
-        let eventName = props?.eventName || 'route_message';
+        const eventName = props?.eventName || 'route_message';
 
         // Ensure the domain is added to emit props for verification. It is overriddeen when already present in props.
-        let emitWithAckProps = props?{domain, ...props}:{domain};
+        const emitWithAckProps = props?{domain, ...props}:{domain};
         return await this.emitWithAck(eventName, request, emitWithAckProps);
     }
 
@@ -394,15 +395,16 @@ export default class ConnectionSocketio {
      * @returns Response from the back-end component
      */
     async sendCommand(message: Object, domain: string, action: string, props?: SendProps): Promise<MessageResponse> {
-        let routing: {domaine: string, action: string, partition?: string} = {domaine: domain, action};
+        if(!this.messageFactory) throw new Error("MessageFactory not initialized");
+        const routing: {domaine: string, action: string, partition?: string} = {domaine: domain, action};
         if(props?.partition) routing.partition = props.partition;
-        let command = await this.messageFactory?.createRoutedMessage(messageStruct.MessageKind.Command, message, routing, new Date());
+        const command = await this.messageFactory.createRoutedMessage(messageStruct.MessageKind.Command, message, routing, new Date());
         if(!command) throw new Error("Error generating command: messageFactory.createRoutedMessage returned null");
         if(props?.attachments) command.attachements = props.attachments;
-        let eventName = props?.eventName || 'route_message';
+        const eventName = props?.eventName || 'route_message';
 
         // Ensure the domain is added to emit props for verification. It is overriddeen when already present in props.
-        let emitWithAckProps = props?{domain, ...props}:{domain};
+        const emitWithAckProps = props?{domain, ...props}:{domain};
         return await this.emitWithAck(eventName, command, emitWithAckProps);
     }
 
@@ -451,10 +453,11 @@ export default class ConnectionSocketio {
 
     async subscribe(subscribeEventName: string, callback: SubscriptionCallback, parameters?: SubscriptionParameters): Promise<void> {
         if(!this.socket) throw new Error('Socket not initialized');
+        if(!this.messageFactory) throw new Error("MessageFactory not initialized");
 
         let routing = {domaine: 'subscribe', action: subscribeEventName};
         let message = parameters || {};
-        let command = await this.messageFactory?.createRoutedMessage(messageStruct.MessageKind.Command, message, routing, new Date());
+        let command = await this.messageFactory.createRoutedMessage(messageStruct.MessageKind.Command, message, routing, new Date());
         if(!command) throw new Error("Error generating command: messageFactory.createRoutedMessage returned null");
 
         let subscriptionResponse = await this.emitWithAck('subscribe', command, {role: 'private_webapi'});

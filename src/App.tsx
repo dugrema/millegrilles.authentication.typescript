@@ -111,7 +111,8 @@ function InitialAuthenticationCheck() {
                 setInitialCheck(false);
                 promiseInitialCheck = null;
             });
-    }, [workers, initialCheck, usernameStore, userSessionActive, connectionReady, setMustManuallyAuthenticate, setConnectionAuthenticated, setSignatureReady]);
+    }, [workers, initialCheck, usernameStore, userSessionActive, connectionReady, 
+        setMustManuallyAuthenticate, setConnectionAuthenticated, setSignatureReady]);
 
     if(promiseInitialCheck) throw promiseInitialCheck;  // Shows <Loading> page with <React.Suspend> in index.tsx.
 

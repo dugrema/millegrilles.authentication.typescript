@@ -884,34 +884,34 @@ export async function authenticateConnectionWorker(workers: AppWorkers, username
 
     // There is a user session (cookie) and a username in the server session. 
     // Check if we have a valid signing key/certificate for this user.
-    let userDbInfo = await getUser(username)
+    const userDbInfo = await getUser(username)
     if(!userDbInfo) {
         // No local information (certificate). 
         return { mustManuallyAuthenticate: true };
     }
 
-    let certificateInfo = userDbInfo.certificate;
+    const certificateInfo = userDbInfo.certificate;
     if(!certificateInfo) {
         // No certificate. The user must authenticate manually.
         return { mustManuallyAuthenticate: true };
     }
 
-    let wrapper = new certificates.CertificateWrapper(certificateInfo.certificate);
+    const wrapper = new certificates.CertificateWrapper(certificateInfo.certificate);
 
     // Check if the certificate is expired
-    let expiration = wrapper.certificate.notAfter;
-    let now = new Date();
+    const expiration = wrapper.certificate.notAfter;
+    const now = new Date();
     if(now > expiration) {
         // The certificate is expired. Remove it, generate a new CSR and force manual authentication.
         await clearCertificate(username);
-        let userId: string | undefined = undefined;  // TODO : get userId
+        const userId: string | undefined = undefined;  // TODO : get userId
         await createCertificateRequest(workers, username, userId);
         return { mustManuallyAuthenticate: true };
     }
 
     // Initialize the message factory with the user's information.
-    let { privateKey, certificate } = certificateInfo;
-    // console.trace("Preparing message factory with ", certificate);
+    const { privateKey, certificate } = certificateInfo;
+    console.trace("Preparing message factory with ", certificate);
     await workers.connection.prepareMessageFactory(privateKey, certificate);
 
     // Authenticate the connection

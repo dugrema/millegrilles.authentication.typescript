@@ -188,10 +188,13 @@ function InstalledApplications() {
 
     const workers = useWorkers();
     const [apps, setApps] = useState<Array<InstalledApplicationType>>();
+    const connectionReady = useUserStore(state=>state.connectionReady); 
+    const connectionAuthenticated = useUserStore(state=>state.connectionAuthenticated); 
     const signatureReady = useUserStore(state=>state.signatureReady);
+    const ready = useMemo(()=>connectionReady && connectionAuthenticated && signatureReady, [connectionReady, connectionAuthenticated, signatureReady]);
 
     useEffect(()=>{
-        if(!workers || !signatureReady) return;
+        if(!workers || !ready) return;
         workers.connection.getApplicationList()
             .then(async result=>{
                 if(!workers) throw new Error("Workers not initialized");
@@ -202,7 +205,7 @@ function InstalledApplications() {
                 }
             })
             .catch(err=>console.error("Error loading application list", err));
-    }, [workers, signatureReady, setApps, languages]);
+    }, [workers, ready, setApps, languages]);
 
     const list = apps?.map((app, idx)=>{
         const adminApp = app.securite === '3.protege';
@@ -232,10 +235,10 @@ function VerifyCertificateRenewal() {
     const certificateRemoteVersions = useUserStore(state=>state.certificateRemoteVersions);
     const setCertificateRemoteVersions = useUserStore(state=>state.setCertificateRemoteVersions);
     const setCertificateRenewable = useUserStore(state=>state.setCertificateRenewable);
-    const connectionReady = useUserStore(state=>state.connectionReady);
+    const connectionReady = useUserStore(state=>state.connectionReady); 
+    const connectionAuthenticated = useUserStore(state=>state.connectionAuthenticated); 
     const signatureReady = useUserStore(state=>state.signatureReady);
-
-    const ready = useMemo(()=>connectionReady && signatureReady, [connectionReady, signatureReady]);
+    const ready = useMemo(()=>connectionReady && connectionAuthenticated && signatureReady, [connectionReady, connectionAuthenticated, signatureReady]);
 
     useEffect(()=>{
         if(!workers || !ready) return;
@@ -253,7 +256,7 @@ function VerifyCertificateRenewal() {
     }, [workers, ready, username, setCertificateRemoteVersions])
 
     useEffect(()=>{
-        // console.debug("Loading username %s, ready %s", username, ready);
+        console.debug("Loading username %s, ready %s", username, ready);
         // Load local IDB version
         getUser(username)
             .then(async userIdb => {
