@@ -83,7 +83,7 @@ function Login() {
 
                 setUsernameStore(username);
                 setMustManuallyAuthenticate(false);
-                setConnectionAuthenticated(true);
+                // setConnectionAuthenticated(true); // Bad flag that was preventing proper auth transfer
 
                 // Persist information for next time the screen is loaded
                 setUsernamePersist(username);
