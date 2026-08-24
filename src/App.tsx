@@ -4,7 +4,7 @@ import Loading from './Loading';
 import Login, { authenticateConnectionWorker } from './Login';
 import InitializeWorkers from './workers/InitializeWorkers';
 import InitializeIdb from './idb/InitializeIdb';
-import useWorkers from './workers/workers';
+import useWorkers from './workers/WorkerProvider';
 import useConnectionStore from "./connectionStore";
 
 import './i18n';
@@ -15,21 +15,21 @@ const ActivateCode = React.lazy(()=>import('./ActivateCode'));
 const AddSecurityDevice = React.lazy(()=>import('./AddSecurityDevice'));
 
 function App() {
-
     let logoutHandler: MouseEventHandler<MouseEvent> = useCallback(()=>{
         window.location.href = '/auth/deconnecter_usager';
     }, []);
 
     return (
         <div className="App">
-            <header className="App-header h-screen text-slate-300 flex-1 content-center">
-                <div className='overflow-auto pt-4 pb-4'>
-                    <ContentRouter logout={logoutHandler} />
-                </div>
-            </header>
-            <InitializeWorkers />
-            <InitializeIdb />
-            <InitialAuthenticationCheck />
+            <InitializeWorkers>
+                <header className="App-header h-screen text-slate-300 flex-1 content-center">
+                    <div className='overflow-auto pt-4 pb-4'>
+                        <ContentRouter logout={logoutHandler} />
+                    </div>
+                </header>
+                <InitializeIdb />
+                <InitialAuthenticationCheck />
+            </InitializeWorkers>
         </div>
     );
 }
@@ -69,8 +69,8 @@ function ContentRouter(props: AuthAndContentProps): React.JSX.Element {
 
 let promiseInitialCheck: Promise<void> | null = null;
 /**
- * This element is used for the initial loading of the app. Check if the user is
- * already logged in. Don't mark setMustManuallyAuthenticate(true) if the 
+ * This element is used for the initial loading of the app. Check if the user
+ * is already logged in. Don't mark setMustManuallyAuthenticate(true) if the 
  * auto authentication works.
  * @returns 
  */

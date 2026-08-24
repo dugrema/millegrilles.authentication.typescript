@@ -5,7 +5,7 @@ import { messageStruct } from "millegrilles.cryptography";
 
 // import { MessageResponse, SubscriptionMessage } from "./workers/";
 import { MessageResponse, SubscriptionMessage } from "millegrilles.reactdeps.typescript";
-import useWorkers from "./workers/workers";
+import useWorkers from "./workers/WorkerProvider";
 import useConnectionStore from "./connectionStore";
 import useAuthenticationStore from "./authenticationStore";
 import { getUser, receiveCertificate } from "./idb/userStoreIdb";

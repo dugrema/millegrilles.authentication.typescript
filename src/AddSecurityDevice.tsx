@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, Dispatch, ChangeEvent } from 'react';
 import useUserStore from './connectionStore';
-import useWorkers, { AppWorkers } from './workers/workers';
+import useWorkers from './workers/WorkerProvider';
+import { AppWorkers } from './workers/workers';
 import { multiencoding } from 'millegrilles.cryptography';
 import { RegistrationChallengeType, TotpSecretType } from './workers/connection.worker';
 import { getUser } from './idb/userStoreIdb';

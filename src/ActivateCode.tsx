@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useEffect, FormEventHandler, Dispatch } from 'react';
 import { FileInput } from 'flowbite-react';
-import useWorkers, { AppWorkers } from './workers/workers';
+import { AppWorkers } from './workers/workers';
+import useWorkers from './workers/WorkerProvider';
 import { DelegationChallengeType } from './workers/connection.worker';
 import { certificates, ed25519, forgeCsr, messageStruct } from 'millegrilles.cryptography';
 import { useTranslation } from 'react-i18next';

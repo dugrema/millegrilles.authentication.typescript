@@ -6,17 +6,10 @@ import { ConnectionCallbackParameters } from "millegrilles.reactdeps.typescript"
 
 export type AppWorkers = {
     connection: Remote<AuthenticationConnectionWorker>,
+    _rawWorker: Worker,
 };
 
 const SOCKETIO_PATH = '/millegrilles/socket.io';
-
-let workers: AppWorkers | null = null;
-
-function useWorkers() {
-    return workers;
-}
-
-export default useWorkers;
 
 export type InitWorkersResult = {
     idmg: string,
@@ -28,7 +21,6 @@ export type InitWorkersResult = {
 export async function initWorkers(callback: (params: ConnectionCallbackParameters) => void): Promise<InitWorkersResult> {
 
     const {idmg, ca, chiffrage} = await loadFiche();
-    // console.debug(`Contenu fiche: IDMG:${idmg}, CA:${ca}, Chiffrage:${chiffrage}`);
 
     const worker = new Worker(new URL('./connection.worker.ts', import.meta.url), {type: 'module'});
     const connection = wrap(worker) as Remote<AuthenticationConnectionWorker>;
@@ -36,18 +28,13 @@ export async function initWorkers(callback: (params: ConnectionCallbackParameter
     // Set-up the workers
     const serverUrl = new URL(window.location.href);
     serverUrl.pathname = SOCKETIO_PATH;
-    // console.debug("Server url: %s\nWorker instances: ${connection}\nInitializing workers", serverUrl)
     await connection.initialize(serverUrl.href, ca, callback, {reconnectionDelay: 7500});
-    // console.debug("Workers initialized");
-    workers = {connection};
 
-    return {idmg, ca, chiffrage, workers};
+    return {idmg, ca, chiffrage, workers: {connection, _rawWorker: worker}};
 }
 
-type LoadFicheResult = {
-    ca: string,
-    idmg: string,
-    chiffrage: Array<Array<string>>,
+export function terminateWorkers(workers: AppWorkers) {
+    workers._rawWorker.terminate();
 }
 
 async function loadFiche(): Promise<LoadFicheResult> {
@@ -63,7 +50,7 @@ async function loadFiche(): Promise<LoadFicheResult> {
     // Verify IDMG with CA
     let idmgVerif = await certificates.getIdmg(ca);
     if(idmgVerif !== idmg) throw new Error("Mismatch IDMG/CA certificate");
-    
+
     console.info("IDMG: ", idmg);
 
     // Verify the signature.
@@ -74,6 +61,8 @@ async function loadFiche(): Promise<LoadFicheResult> {
     return {idmg, ca, chiffrage};
 }
 
-export async function connect() {
-    await workers?.connection.connect();
+type LoadFicheResult = {
+    ca: string,
+    idmg: string,
+    chiffrage: Array<Array<string>>,
 }

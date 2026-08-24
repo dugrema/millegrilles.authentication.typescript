@@ -5,7 +5,8 @@ import { proxy } from 'comlink';
 import { createCertificateRequest, LanguageSelectbox, prepareRenewalIfDue, userLoginVerification } from './Login';
 import VersionInfo from './VersionInfo';
 import useUserStore from './connectionStore';
-import useWorkers, { AppWorkers } from './workers/workers';
+import useWorkers from './workers/WorkerProvider';
+import { AppWorkers } from './workers/workers';
 import { getUser, updateUser } from './idb/userStoreIdb';
 
 import KeyIcon from './resources/key-svgrepo-com.svg';
