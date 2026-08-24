@@ -1,5 +1,5 @@
 import {certificates} from "millegrilles.cryptography";
-import { Remote, wrap } from 'comlink';
+import { Remote, wrap, proxy } from 'comlink';
 
 import { AuthenticationConnectionWorker } from "./connection.worker";
 import { ConnectionCallbackParameters } from "millegrilles.reactdeps.typescript";
@@ -28,7 +28,9 @@ export async function initWorkers(callback: (params: ConnectionCallbackParameter
     // Set-up the workers
     const serverUrl = new URL(window.location.href);
     serverUrl.pathname = SOCKETIO_PATH;
-    await connection.initialize(serverUrl.href, ca, callback, {reconnectionDelay: 7500});
+    
+    const callbackProxy = proxy(callback);
+    await connection.initialize(serverUrl.href, ca, callbackProxy, {reconnectionDelay: 7500});
 
     return {idmg, ca, chiffrage, workers: {connection, _rawWorker: worker}};
 }
