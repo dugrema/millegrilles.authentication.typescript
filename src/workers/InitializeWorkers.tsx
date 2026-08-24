@@ -9,26 +9,25 @@ import useConnectionStore from "../connectionStore";
  * Initializes the Web Workers and a few other elements to connect to the back-end.
  */
 function InitializeWorkers() {
-    let workersReady = useConnectionStore((state) => state.workersReady);
-    let workersRetry = useConnectionStore((state) => state.workersRetry);
-    let incrementWorkersRetry = useConnectionStore(
+    const workersReady = useConnectionStore((state) => state.workersReady);
+    const workersRetry = useConnectionStore((state) => state.workersRetry);
+    const incrementWorkersRetry = useConnectionStore(
         (state) => state.incrementWorkersRetry
     );
-    let setWorkersRetryReady = useConnectionStore(
+    const setWorkersRetryReady = useConnectionStore(
         (state) => state.setWorkersRetryReady
     );
-    let setWorkersReady = useConnectionStore((state) => state.setWorkersReady);
-    let setFiche = useConnectionStore((state) => state.setFiche);
-    let setUsername = useConnectionStore((state) => state.setUsername);
-    let setUserSessionActive = useConnectionStore((state) => state.setUserSessionActive);
-    let setMustManuallyAuthenticate = useConnectionStore((state) => state.setMustManuallyAuthenticate);
+    const setWorkersReady = useConnectionStore((state) => state.setWorkersReady);
+    const setFiche = useConnectionStore((state) => state.setFiche);
+    const setUsername = useConnectionStore((state) => state.setUsername);
+    const setUserSessionActive = useConnectionStore((state) => state.setUserSessionActive);
+    const setMustManuallyAuthenticate = useConnectionStore((state) => state.setMustManuallyAuthenticate);
 
-    let setConnectionReady = useConnectionStore(
-        (state) => state.setConnectionReady
-    );
+    const setConnectionReady = useConnectionStore((state) => state.setConnectionReady);
 
-    let connectionCallback = useMemo(() => {
+    const connectionCallback = useMemo(() => {
         return proxy((params: ConnectionCallbackParameters) => {
+            // console.debug("Connection callback", params);
             setConnectionReady(params.connected);
             if (params.username && params.userId && params.authenticated) {
                 setUsername(params.username);
@@ -42,14 +41,14 @@ function InitializeWorkers() {
 
     // Load the workers with a useMemo that returns a Promise. Allows throwing the promise
     // and catching it with the <React.Suspense> element in index.tsx.
-    let workerLoadingPromise = useMemo(() => {
+    const workerLoadingPromise = useMemo(() => {
         // Avoid loop, only load workers once.
         if (!workersRetry.retry || workersReady || !connectionCallback) return;
         incrementWorkersRetry();
 
         // Stop loading the page when too many retries.
         if (workersRetry.count > 4) {
-            let error = new Error("Too many retries");
+            const error = new Error("Too many retries");
             // @ts-ignore
             error.code = 1;
             // @ts-ignore
@@ -60,8 +59,8 @@ function InitializeWorkers() {
         return fetch('/auth/verifier_usager')
             .then(async (verifUser: Response) => {
                 // console.debug("Response verifier usager: %O", verifUser);
-                let userStatus = verifUser.status;
-                let username = verifUser.headers.get('x-user-name');
+                const userStatus = verifUser.status;
+                const username = verifUser.headers.get('x-user-name');
                 // let userId = verifUser.headers.get('x-user-id');
                 setUserSessionActive(userStatus === 200);
                 if(username) setUsername(username);
@@ -78,7 +77,7 @@ function InitializeWorkers() {
                     "Error initializing web workers. Retrying in 5 seconds.",
                     err
                 );
-                let promise = new Promise((resolve: any) => {
+                const promise = new Promise((resolve: any) => {
                     setTimeout(() => {
                         setWorkersRetryReady();
                         resolve();
@@ -106,8 +105,8 @@ function InitializeWorkers() {
 export default InitializeWorkers;
 
 function MaintainConnection() {
-    let workers = useWorkers();
-    let workersReady = useConnectionStore((state) => state.workersReady);
+    const workers = useWorkers();
+    const workersReady = useConnectionStore((state) => state.workersReady);
     
     useEffect(() => {
         if (!workers) return;

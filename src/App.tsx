@@ -42,12 +42,12 @@ type AuthAndContentProps = {
 
 function ContentRouter(props: AuthAndContentProps): React.JSX.Element {
 
-    let mustManuallyAuthenticate = useConnectionStore(state=>state.mustManuallyAuthenticate);
-    let connectionAuthenticated = useConnectionStore(state=>state.connectionAuthenticated);
+    const mustManuallyAuthenticate = useConnectionStore(state=>state.mustManuallyAuthenticate);
+    const connectionAuthenticated = useConnectionStore(state=>state.connectionAuthenticated);
 
-    let [page, setPage] = useState('ApplicationList');
+    const [page, setPage] = useState('ApplicationList');
 
-    let backHandler = useCallback(()=>{
+    const backHandler = useCallback(()=>{
         setPage('');
     }, [setPage]);
 
@@ -76,27 +76,30 @@ let promiseInitialCheck: Promise<void> | null = null;
  */
 function InitialAuthenticationCheck() {
 
-    let workers = useWorkers();
+    const workers = useWorkers();
 
-    let [initialCheck, setInitialCheck] = useState(true);
+    const [initialCheck, setInitialCheck] = useState(true);
 
-    let usernameStore = useConnectionStore(state=>state.username);
-    let connectionReady = useConnectionStore((state) => state.connectionReady);
-    let userSessionActive = useConnectionStore((state) => state.userSessionActive);
-    let setMustManuallyAuthenticate = useConnectionStore((state) => state.setMustManuallyAuthenticate);
-    let setConnectionAuthenticated = useConnectionStore((state) => state.setConnectionAuthenticated);
+    const usernameStore = useConnectionStore(state=>state.username);
+    const connectionReady = useConnectionStore((state) => state.connectionReady);
+    const userSessionActive = useConnectionStore((state) => state.userSessionActive);
+    const setMustManuallyAuthenticate = useConnectionStore((state) => state.setMustManuallyAuthenticate);
+    const setConnectionAuthenticated = useConnectionStore((state) => state.setConnectionAuthenticated);
+    const setSignatureReady = useConnectionStore((state) => state.setSignatureReady);
 
     useEffect(()=>{
         if(!initialCheck || !workers || !connectionReady) return;
 
         promiseInitialCheck = authenticateConnectionWorker(workers, usernameStore, userSessionActive)
             .then(result=>{
+                // console.debug("Connection worker authentication: ", result);
                 if(result.mustManuallyAuthenticate) {
                     setMustManuallyAuthenticate(true);
                     return;
                 } else if(result.authenticated) {
                     setMustManuallyAuthenticate(false);
                     setConnectionAuthenticated(true);
+                    setSignatureReady(true);    // Releases all pages waiting for the factory
                 }
             })
             .catch(err=>{
@@ -108,7 +111,7 @@ function InitialAuthenticationCheck() {
                 setInitialCheck(false);
                 promiseInitialCheck = null;
             });
-    }, [workers, initialCheck, usernameStore, userSessionActive, connectionReady, setMustManuallyAuthenticate, setConnectionAuthenticated]);
+    }, [workers, initialCheck, usernameStore, userSessionActive, connectionReady, setMustManuallyAuthenticate, setConnectionAuthenticated, setSignatureReady]);
 
     if(promiseInitialCheck) throw promiseInitialCheck;  // Shows <Loading> page with <React.Suspend> in index.tsx.
 

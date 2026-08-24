@@ -24,6 +24,7 @@ function Login() {
     const setMustManuallyAuthenticate = useConnectionStore((state) => state.setMustManuallyAuthenticate);
     const setConnectionAuthenticated = useConnectionStore((state) => state.setConnectionAuthenticated);
     const setConnectionInsecure = useConnectionStore((state) => state.setConnectionInsecure);
+    const setSignatureReady = useConnectionStore((state) => state.setSignatureReady);
 
     // Store that persists values in local storage
     const usernamePersist = useAuthenticationStore( state => state.username );
@@ -102,6 +103,7 @@ function Login() {
             } else if(loginResult.authenticated) {
                 setUsernameStore(username);
                 setMustManuallyAuthenticate(false);
+                setSignatureReady(true);
 
                 // Connect the worker
                 let authResult = await workers?.connection.authenticate(true);  // Reconnect flag
@@ -131,6 +133,7 @@ function Login() {
                     setUsernameStore(username);
                     setMustManuallyAuthenticate(false);
                     setConnectionAuthenticated(true);
+                    setSignatureReady(true);
 
                     // Persist information for next time the screen is loaded
                     setUsernamePersist(username);
@@ -706,7 +709,11 @@ async function registerUser(workers: AppWorkers, username: string, sessionDurati
 }
 
 export async function prepareRenewalIfDue(workers: AppWorkers, certificate: certificates.CertificateWrapper): Promise<UserCertificateRequest | null> {
-    const expiration = certificate.certificate.notAfter;
+    // @ts-ignore
+    const tbsCertificateObject = certificate?.certificate?.asn?.tbsCertificate || certificate?.certificate;
+    // @ts-ignore
+    const notAfterDate = tbsCertificateObject.validity?.notAfter?.utcTime;
+    // console.debug("Certificate expiration: ", notAfterDate);
     const now = new Date();
 
     const username = certificate.extensions?.commonName;
@@ -714,24 +721,28 @@ export async function prepareRenewalIfDue(workers: AppWorkers, certificate: cert
 
     if(!username || !userId) throw new Error("Invalid user certificate, no commonName or userId");
 
-    if(expiration) {
-        if(now > expiration) {
+    if(notAfterDate) {
+        if(now > notAfterDate) {
             // The certificate is expired. Remove it and generate new request.
             await clearCertificate(username);
             const entry = await createCertificateRequest(workers, username, userId);
             return entry;
         } else {
             // Check if the certificate is about to expire (>2/3 duration)
-            const notBefore = certificate.certificate.notBefore;
-            const totalDuration = expiration.getTime() - notBefore.getTime();
-            const canRenewTs = Math.floor(totalDuration * 2/3 + notBefore.getTime());
-            const canRenew = new Date(canRenewTs);
+            // @ts-ignore
+            const notBeforeDate = tbsCertificateObject.validity?.notBefore?.utcTime;
+            const notBeforeEpochMs = notBeforeDate?.getTime();
+            if(notBeforeEpochMs) {
+                const totalDuration = notAfterDate.getTime() - notBeforeEpochMs;
+                const canRenewTs = Math.floor(totalDuration * 2/3 + notBeforeEpochMs);
+                const canRenew = new Date(canRenewTs);
 
-            if(now > canRenew) {
-                // Generate a new certificate request
-                const userId: string | undefined = undefined;  // TODO : get userId
-                const entry = await createCertificateRequest(workers, username, userId);
-                return entry;
+                if(now > canRenew) {
+                    // Generate a new certificate request
+                    const userId: string | undefined = undefined;  // TODO : get userId
+                    const entry = await createCertificateRequest(workers, username, userId);
+                    return entry;
+                }
             }
         }
     }
@@ -775,6 +786,7 @@ export async function performLogin(workers: AppWorkers, username: string, sessio
         // The user exists
         if(userDbInfo?.certificate && loginInfo.challenge_certificat) {
             // We got a challenge to authenticate with the certificate.
+            // console.trace("Preparing message factory with ", userDbInfo);
             await workers.connection.prepareMessageFactory(userDbInfo.certificate.privateKey, userDbInfo.certificate.certificate);
             const authenticationResponse = await certificateAuthentication(workers, loginInfo.challenge_certificat, sessionDuration);
             return {authenticated: authenticationResponse.auth, userId: authenticationResponse.userId};
@@ -899,6 +911,7 @@ export async function authenticateConnectionWorker(workers: AppWorkers, username
 
     // Initialize the message factory with the user's information.
     let { privateKey, certificate } = certificateInfo;
+    // console.trace("Preparing message factory with ", certificate);
     await workers.connection.prepareMessageFactory(privateKey, certificate);
 
     // Authenticate the connection

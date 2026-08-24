@@ -38,18 +38,19 @@ type UserUpdateEvent = (MessageResponse | messageStruct.MilleGrillesMessage) & {
 
 function ApplicationList(props: ApplicationListProps) {
 
-    let { t } = useTranslation();
-    let workers = useWorkers();
+    const { t } = useTranslation();
+    const workers = useWorkers();
 
-    let username = useUserStore(state=>state.username);
-    let certificateRenewable = useUserStore(state=>state.certificateRenewable);
-    let setCertificateRenewable = useUserStore(state=>state.setCertificateRenewable);
-    let connectionInsecure = useUserStore(state=>state.connectionInsecure);
-    let connectionAuthenticated = useConnectionStore(state=>state.connectionAuthenticated);
+    const username = useUserStore(state=>state.username);
+    const certificateRenewable = useUserStore(state=>state.certificateRenewable);
+    const setCertificateRenewable = useUserStore(state=>state.setCertificateRenewable);
+    const signatureReady = useUserStore(state=>state.signatureReady);
+    const connectionInsecure = useUserStore(state=>state.connectionInsecure);
+    const connectionAuthenticated = useConnectionStore(state=>state.connectionAuthenticated);
 
-    let {logout, setPage} = props;
+    const {logout, setPage} = props;
 
-    let logoutClickHandler = useCallback((e: any)=>{
+    const logoutClickHandler = useCallback((e: any)=>{
         let timeout = setTimeout(()=>logout(e), 300);  // In case of issue with the cleanup (finally doesn't get called).
         cleanup(username)
             .catch(err=>console.error("Error cleaning up before logout", err))
@@ -59,25 +60,25 @@ function ApplicationList(props: ApplicationListProps) {
             });
     }, [username, logout]);
 
-    let sectionChangeHandler = useCallback((e: SyntheticEvent)=>{
-        let target = e.target as HTMLInputElement;
-        let pageName = target?target.value:null;
+    const sectionChangeHandler = useCallback((e: SyntheticEvent)=>{
+        const target = e.target as HTMLInputElement;
+        const pageName = target?target.value:null;
         if(pageName) setPage(pageName);
     }, [setPage]);
 
-    let userEventCallback = useMemo(()=>proxy(async (e: any) => {
+    const userEventCallback = useMemo(()=>proxy(async (e: any) => {
         // Check if the delegations_date is > than current certificate.
-        let message = e.message as UserUpdateEvent;
-        let deletagions_date = message.delegations_date;
-        let certificate = await workers?.connection.getMessageFactoryCertificate();
-        let notBeforeDate = certificate?.certificate.notBefore;
+        const message = e.message as UserUpdateEvent;
+        const deletagions_date = message.delegations_date;
+        const certificate = await workers?.connection.getMessageFactoryCertificate();
+        const notBeforeDate = certificate?.certificate.notBefore;
         if(!notBeforeDate || !deletagions_date || notBeforeDate.getTime() < deletagions_date*1000) {
             setCertificateRenewable(true);
         }
     }), [workers, setCertificateRenewable]);
 
     useEffect(()=>{
-        if(!workers || !connectionAuthenticated) return;
+        if(!workers || !connectionAuthenticated || !signatureReady) return;
         workers.connection.subscribe('userAccountEvents', userEventCallback)
             .catch(err=>console.error("Error subscribing for account events", err));
         return () => {
@@ -87,7 +88,7 @@ function ApplicationList(props: ApplicationListProps) {
                     console.info("Error unsubscribing for account events: " + err);
                 });
         }
-    }, [workers, connectionAuthenticated, userEventCallback])
+    }, [workers, connectionAuthenticated, signatureReady, userEventCallback])
 
     return (
         <div>
@@ -148,9 +149,9 @@ export default ApplicationList;
 
 function LanguagePopover() {
 
-    let { t } = useTranslation();
+    const { t } = useTranslation();
 
-    let content = (
+    const content = (
         <div className='min-w-80 text-sm text-gray-400 border-gray-600 bg-gray-800'>
             <div className="px-3 py-2 border-b rounded-t-lg border-gray-600 bg-gray-700">
                 <h3 className="font-semibold text-white">{t('labels.changeLanguage')}</h3>
@@ -182,29 +183,30 @@ type InstalledApplicationType = {
 
 function InstalledApplications() {
 
-    let { t, i18n } = useTranslation();
-    let languages = i18n.languages;
+    const { t, i18n } = useTranslation();
+    const languages = i18n.languages;
 
-    let workers = useWorkers();
-    let [apps, setApps] = useState<Array<InstalledApplicationType>>();
+    const workers = useWorkers();
+    const [apps, setApps] = useState<Array<InstalledApplicationType>>();
+    const signatureReady = useUserStore(state=>state.signatureReady);
 
     useEffect(()=>{
-        if(!workers) return;
+        if(!workers || !signatureReady) return;
         workers.connection.getApplicationList()
             .then(async result=>{
                 if(!workers) throw new Error("Workers not initialized");
                 if(result.ok) {
                     console.debug("Applications list (V2)", result);
-                    let apps = await processApplicationListResultV2(workers, result, languages);
+                    const apps = await processApplicationListResultV2(workers, result, languages);
                     setApps(apps);
                 }
             })
             .catch(err=>console.error("Error loading application list", err));
-    }, [workers, setApps, languages]);
+    }, [workers, signatureReady, setApps, languages]);
 
-    let list = apps?.map((app, idx)=>{
-        let adminApp = app.securite === '3.protege';
-        let icon = adminApp?SetupIcon:ForwardIcon;
+    const list = apps?.map((app, idx)=>{
+        const adminApp = app.securite === '3.protege';
+        const icon = adminApp?SetupIcon:ForwardIcon;
         return (
             <div key={''+idx} className='border-t border-l border-r border-slate-500 text-start p-2 w-full'>
                 <a href={app.url} className='font-semibold hover:underline' rel="noopener noreferrer">
@@ -224,29 +226,34 @@ function InstalledApplications() {
 
 function VerifyCertificateRenewal() {
 
-    let workers = useWorkers();
+    const workers = useWorkers();
 
-    let username = useUserStore(state=>state.username);
-    let certificateRemoteVersions = useUserStore(state=>state.certificateRemoteVersions);
-    let setCertificateRemoteVersions = useUserStore(state=>state.setCertificateRemoteVersions);
-    let setCertificateRenewable = useUserStore(state=>state.setCertificateRenewable);
+    const username = useUserStore(state=>state.username);
+    const certificateRemoteVersions = useUserStore(state=>state.certificateRemoteVersions);
+    const setCertificateRemoteVersions = useUserStore(state=>state.setCertificateRemoteVersions);
+    const setCertificateRenewable = useUserStore(state=>state.setCertificateRenewable);
+    const connectionReady = useUserStore(state=>state.connectionReady);
+    const signatureReady = useUserStore(state=>state.signatureReady);
+
+    const ready = useMemo(()=>connectionReady && signatureReady, [connectionReady, signatureReady]);
 
     useEffect(()=>{
-        if(!workers) return;
-        let hostname = window.location.hostname;
+        if(!workers || !ready) return;
+        const hostname = window.location.hostname;
         workers.connection.getCurrentUserDetail(username, hostname)
             .then((result)=>{
-                let delegations_version = result.compte?.delegations_version;
-                let delegations_date = result.compte?.delegations_date;
+                const delegations_version = result.compte?.delegations_version;
+                const delegations_date = result.compte?.delegations_date;
                 if(delegations_version && delegations_date) {
                     setCertificateRemoteVersions({version: delegations_version, date: delegations_date});
                 }
             })
             .catch((err: any)=>console.error("Error loading user detail for certificate update ", err));
 
-    }, [workers, username, setCertificateRemoteVersions])
+    }, [workers, ready, username, setCertificateRemoteVersions])
 
     useEffect(()=>{
+        // console.debug("Loading username %s, ready %s", username, ready);
         // Load local IDB version
         getUser(username)
             .then(async userIdb => {
@@ -257,10 +264,11 @@ function VerifyCertificateRenewal() {
                     return;
                 }
 
-                if(!workers) return;
+                if(!workers || !ready) return;
 
                 // Check if the certificate is about to expire
                 const certificate = await workers.connection.getMessageFactoryCertificate();
+                // console.debug("Message factory certificate", certificate);
                 if(certificate) {
                     try {
                         const due = await prepareRenewalIfDue(workers, certificate);
@@ -277,9 +285,17 @@ function VerifyCertificateRenewal() {
                 
                 if(!certificateRemoteVersions) return
 
-                let notBeforeDate = certificate?.certificate.notBefore.getTime();
+                // console.debug("Certificate not-before: ", certificate?.certificate);
+                // @ts-ignore
+                const tbsCertificateObject = certificate?.certificate?.asn?.tbsCertificate || certificate?.certificate;
+                // console.debug("Certificate tbsCertificateObject: ", tbsCertificateObject);
+                // @ts-ignore
+                const notBeforeDate = tbsCertificateObject.validity?.notBefore?.utcTime;
+                // console.debug("Certificate notBeforeDate: ", notBeforeDate);
                 if(!notBeforeDate) throw new Error('The certificate has no NotBefore date. This is invalid.');
-                notBeforeDate = notBeforeDate / 1000;  // Convert to seconds
+                
+                const notBeforeEpochSecs = notBeforeDate.getTime() / 1000;  // Convert to seconds
+                // console.debug("Not before epoch secs", notBeforeEpochSecs)
 
                 if(certificateRemoteVersions.date > notBeforeDate) {
                     console.info("Updated certificate roles on the server");
@@ -294,7 +310,7 @@ function VerifyCertificateRenewal() {
                 }
             })
             .catch(err=>console.error("Error loading user ", err));
-    }, [workers, certificateRemoteVersions, username, setCertificateRenewable])
+    }, [workers, ready, certificateRemoteVersions, username, setCertificateRenewable])
 
     return <span></span>;
 }
@@ -308,53 +324,54 @@ export type RenewCertificateProps = {
 
 export function RenewCertificate(props?: RenewCertificateProps) {
 
-    let { t } = useTranslation();
-    let buttonOnly = props?.buttonOnly;
-    let className = props?.className || '';
-    let onSuccess = props?.onSuccess;
-    let onError = props?.onError;
+    const { t } = useTranslation();
+    const buttonOnly = props?.buttonOnly;
+    const className = props?.className || '';
+    const onSuccess = props?.onSuccess;
+    const onError = props?.onError;
 
-    let workers = useWorkers();
-    let username = useUserStore(state=>state.username);
-    let setCertificateRemoteVersions = useUserStore(state=>state.setCertificateRemoteVersions);
-    let setCertificateRenewable = useUserStore(state=>state.setCertificateRenewable);
+    const workers = useWorkers();
+    const username = useUserStore(state=>state.username);
+    const setCertificateRemoteVersions = useUserStore(state=>state.setCertificateRemoteVersions);
+    const setCertificateRenewable = useUserStore(state=>state.setCertificateRenewable);
+    const setSignatureReady = useUserStore(state=>state.setSignatureReady);
 
-    let [challenge, setChallenge] = useState<PrepareAuthenticationResult>();
-    let [disabled, setDisabled] = useState(false);
+    const [challenge, setChallenge] = useState<PrepareAuthenticationResult>();
+    const [disabled, setDisabled] = useState(false);
 
-    let signHandler = useCallback(()=>{
+    const signHandler = useCallback(()=>{
         if(!challenge) throw new Error("Challenge not ready");
         setDisabled(true);
         signAuthenticationRequest(username, challenge.demandeCertificat, challenge.publicKey)
             .then(async signedRequest=>{
                 if(!challenge) {
-                    let error = new Error('challenge missing');
+                    const error = new Error('challenge missing');
                     if(onError) return onError(error);
                     else throw error;
                 }
 
-                let command = {
+                const command = {
                     demandeCertificat: signedRequest.demandeCertificat,
                     challenge: challenge.challengeReference,
                     hostname: window.location.hostname,
                     clientAssertionResponse: signedRequest.webauthn,
                 };
-                let response = await workers?.connection.signUserAccount(command);
+                const response = await workers?.connection.signUserAccount(command);
                 if(response?.ok && response?.certificat) {
                     // Success. Save the new certificate and start using it.
                     // Get the newly generated certificate chain. The last one is the CA, remove it from the chain.
-                    let certificate = response?.certificat;
-                    let ca = certificate.pop();
+                    const certificate = response?.certificat;
+                    const ca = certificate.pop();
 
-                    let userIdb = await getUser(username);
-                    let certificateRequest = userIdb?.request;
+                    const userIdb = await getUser(username);
+                    const certificateRequest = userIdb?.request;
                     if(!certificateRequest) {
-                        let error = new Error("Error during certificate renewal, no active certificate available");
+                        const error = new Error("Error during certificate renewal, no active certificate available");
                         if(onError) return onError(error);
                         else throw error;
                     }
 
-                    let certificateEntry = {
+                    const certificateEntry = {
                         certificate,
                         publicKey: certificateRequest.publicKey,
                         privateKey: certificateRequest.privateKey,
@@ -368,11 +385,13 @@ export function RenewCertificate(props?: RenewCertificateProps) {
                     });
 
                     // Update the message factory to start using the new certificate immediately
+                    // console.trace("Preparing message factory with ", certificate);
                     await workers?.connection.prepareMessageFactory(certificateRequest.privateKey, certificate);
 
                     // Cleanup screen, this removes the <RenewCertificate> element.
                     setCertificateRemoteVersions(undefined);
                     setCertificateRenewable(false);
+                    setSignatureReady(true);  // Message factory setup done
 
                     // Success callback
                     if(onSuccess) onSuccess();
@@ -440,12 +459,16 @@ export function RenewCertificate(props?: RenewCertificateProps) {
 
 /** Checks if the user account has the activate: true flag. */
 function CheckActivationStatus() {
-    let workers = useWorkers();
-    let username = useUserStore(state=>state.username);
-    let setConnectionInsecure = useUserStore(state=>state.setConnectionInsecure);
+    const workers = useWorkers();
+    const username = useUserStore(state=>state.username);
+    const setConnectionInsecure = useUserStore(state=>state.setConnectionInsecure);
     
+    const connectionReady = useUserStore(state=>state.connectionReady);
+    const signatureReady = useUserStore(state=>state.signatureReady);
+    const ready = useMemo(()=>connectionReady && signatureReady, [connectionReady, signatureReady]);
+
     useEffect(()=>{
-        if(!workers || !username) return;
+        if(!workers || !ready || !username) return;
 
         userLoginVerification(username)
             .then(result=>{
@@ -455,74 +478,74 @@ function CheckActivationStatus() {
                 }
             })
             .catch(err=>console.error("Error checking user status ", err));
-    }, [workers, username, setConnectionInsecure]);
+    }, [workers, ready, username, setConnectionInsecure]);
 
     return <span></span>;
 }
 
-async function processApplicationListResult(workers: AppWorkers, message: MessageResponse, languages: readonly string[]): Promise<Array<InstalledApplicationType>> {
-    const urlLocal = new URL(window.location.href)
+// async function processApplicationListResult(workers: AppWorkers, message: MessageResponse, languages: readonly string[]): Promise<Array<InstalledApplicationType>> {
+//     const urlLocal = new URL(window.location.href)
 
-    // @ts-ignore
-    let apps = message.resultats as Array<InstalledApplicationType>;
+//     // @ts-ignore
+//     let apps = message.resultats as Array<InstalledApplicationType>;
 
-    // Read the "serveur" attachement to get the local instance_id from its certificate.
-    // @ts-ignore
-    let serverMessage = message['__original']?.attachements?.serveur as messageStruct.MilleGrillesMessage;
-    let verifiedServerMessage = await workers?.connection?.verifyMessage(serverMessage);
-    // @ts-ignore
-    let certificate = verifiedServerMessage['__certificate'] as certificates.CertificateWrapper;
-    if(!certificate) throw new Error('Invalid "serveur" attachement');
-    let instanceId = certificate.extensions?.commonName;
+//     // Read the "serveur" attachement to get the local instance_id from its certificate.
+//     // @ts-ignore
+//     let serverMessage = message['__original']?.attachements?.serveur as messageStruct.MilleGrillesMessage;
+//     let verifiedServerMessage = await workers?.connection?.verifyMessage(serverMessage);
+//     // @ts-ignore
+//     let certificate = verifiedServerMessage['__certificate'] as certificates.CertificateWrapper;
+//     if(!certificate) throw new Error('Invalid "serveur" attachement');
+//     let instanceId = certificate.extensions?.commonName;
 
-    // Filter out applications that should not be shown
-    apps = apps.filter(item=>{
-            if(item.instance_id !== instanceId) return false;  // Not local
-            if(item.supporte_usagers === false) return false;  // Not meant for users
-            return true
-        });
+//     // Filter out applications that should not be shown
+//     apps = apps.filter(item=>{
+//             if(item.instance_id !== instanceId) return false;  // Not local
+//             if(item.supporte_usagers === false) return false;  // Not meant for users
+//             return true
+//         });
 
-    // Update names
-    apps.forEach(app=>{
-        app.name_property = app.name_property[0].toLocaleUpperCase() + app.name_property.slice(1);
-        app.name_property = app.name_property.replace(/_/g, ' ');
+//     // Update names
+//     apps.forEach(app=>{
+//         app.name_property = app.name_property[0].toLocaleUpperCase() + app.name_property.slice(1);
+//         app.name_property = app.name_property.replace(/_/g, ' ');
 
-        // Default
-        let name = app.name_property[0].toLocaleUpperCase() + app.name_property.slice(1);
-        name = name.replace(/_/g, ' ');
-        app.name = name;
+//         // Default
+//         let name = app.name_property[0].toLocaleUpperCase() + app.name_property.slice(1);
+//         name = name.replace(/_/g, ' ');
+//         app.name = name;
 
-        // Override default if labels found
-        for(let language of languages) {
-            if(app.labels && app.labels[language]) {
-                let languageLabels = app.labels[language];
-                app.name = languageLabels.name;
-                app.description = languageLabels.description;
-                break;
-            }
-        }
+//         // Override default if labels found
+//         for(let language of languages) {
+//             if(app.labels && app.labels[language]) {
+//                 let languageLabels = app.labels[language];
+//                 app.name = languageLabels.name;
+//                 app.description = languageLabels.description;
+//                 break;
+//             }
+//         }
         
-        // Adapt url to local hostname:port
-        try {
-            let appUrl = new URL(app.url);
-            appUrl.hostname = urlLocal.hostname;
-            appUrl.port = urlLocal.port;
-            app.url = appUrl.href;  // Override app url
-        } catch(err) {
-            console.warn("Error mapping application url %s: %O", app.url, err);
-        }
+//         // Adapt url to local hostname:port
+//         try {
+//             let appUrl = new URL(app.url);
+//             appUrl.hostname = urlLocal.hostname;
+//             appUrl.port = urlLocal.port;
+//             app.url = appUrl.href;  // Override app url
+//         } catch(err) {
+//             console.warn("Error mapping application url %s: %O", app.url, err);
+//         }
 
-    })
+//     })
 
-    // Sort
-    apps.sort((a, b) => {
-        let valA = a.name || a.name_property;
-        let valB = b.name || b.name_property;
-        return valA.toLocaleLowerCase().localeCompare(valB.toLocaleLowerCase())
-    });
+//     // Sort
+//     apps.sort((a, b) => {
+//         let valA = a.name || a.name_property;
+//         let valB = b.name || b.name_property;
+//         return valA.toLocaleLowerCase().localeCompare(valB.toLocaleLowerCase())
+//     });
 
-    return apps;
-}
+//     return apps;
+// }
 
 async function processApplicationListResultV2(workers: AppWorkers, message: ReponseListeApplicationsDeployeesV2, languages: readonly string[]): Promise<Array<InstalledApplicationType>> {
     const urlLocal = new URL(window.location.href)
@@ -547,16 +570,16 @@ async function processApplicationListResultV2(workers: AppWorkers, message: Repo
     // Filter out applications that should not be shown
     const filteredApplications: Record<string, ApplicationInfo> = {};
     for (const [appName, appInfo] of Object.entries(instanceApplications.applications)) {
-        console.log(`Application Name: ${appName}`);
-        console.log(`Version: ${appInfo.version}`);
+        // console.log(`Application Name: ${appName}`);
+        // console.log(`Version: ${appInfo.version}`);
         
         // Filter out API only values
         appInfo.web = appInfo.web?.filter(web=>!web.api);
 
         // Accessing nested arrays like web components
-        appInfo.web?.forEach(web => {
-            console.log(`- Web port: ${web.port}`);
-        });
+        // appInfo.web?.forEach(web => {
+        //     console.log(`- Web port: ${web.port}`);
+        // });
 
         // Only keep apps with at least one web entry
         if(appInfo.web?.length) {

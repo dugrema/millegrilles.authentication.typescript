@@ -374,7 +374,7 @@ export default class ConnectionSocketio {
         let routing: {domaine: string, action: string, partition?: string} = {domaine: domain, action};
         if(props?.partition) routing.partition = props.partition;
         let request = await this.messageFactory?.createRoutedMessage(messageStruct.MessageKind.Request, message, routing, new Date());
-        if(!request) throw new Error("Error generating request: null");
+        if(!request) throw new Error("Error generating request: messageFactory.createRoutedMessage returned null");
         if(props?.attachments) request.attachements = props.attachments;
         let eventName = props?.eventName || 'route_message';
 
@@ -397,7 +397,7 @@ export default class ConnectionSocketio {
         let routing: {domaine: string, action: string, partition?: string} = {domaine: domain, action};
         if(props?.partition) routing.partition = props.partition;
         let command = await this.messageFactory?.createRoutedMessage(messageStruct.MessageKind.Command, message, routing, new Date());
-        if(!command) throw new Error("Error generating command: null");
+        if(!command) throw new Error("Error generating command: messageFactory.createRoutedMessage returned null");
         if(props?.attachments) command.attachements = props.attachments;
         let eventName = props?.eventName || 'route_message';
 
@@ -455,7 +455,7 @@ export default class ConnectionSocketio {
         let routing = {domaine: 'subscribe', action: subscribeEventName};
         let message = parameters || {};
         let command = await this.messageFactory?.createRoutedMessage(messageStruct.MessageKind.Command, message, routing, new Date());
-        if(!command) throw new Error("Error generating command: null");
+        if(!command) throw new Error("Error generating command: messageFactory.createRoutedMessage returned null");
 
         let subscriptionResponse = await this.emitWithAck('subscribe', command, {role: 'private_webapi'});
         if(!subscriptionResponse.ok) {
@@ -511,7 +511,7 @@ export default class ConnectionSocketio {
         let routing = {domaine: 'unsubscribe', action: subscribeEventName};
         let message = parameters || {};
         let command = await this.messageFactory?.createRoutedMessage(messageStruct.MessageKind.Command, message, routing, new Date());
-        if(!command) throw new Error("Error generating command: null");
+        if(!command) throw new Error("Error generating command: messageFactory.createRoutedMessage returned null");
 
         let subscriptionResponse = await this.emitWithAck('unsubscribe', command, {role: 'private_webapi'});
         if(!subscriptionResponse.ok) {
@@ -549,7 +549,8 @@ export class ConnectionWorker {
 
     async prepareMessageFactory(privateKey: Uint8Array, certificate: Array<string>) {
         if(!this.connection) throw new Error("Connection is not initialized");
-        let signingKey = await ed25519.messageSigningKeyFromBytes(privateKey, certificate);
+        const signingKey = await ed25519.messageSigningKeyFromBytes(privateKey, certificate);
+        // console.trace("Preparing message factory with key", signingKey);
         return this.connection.prepareMessageFactory(signingKey);
     }
 
