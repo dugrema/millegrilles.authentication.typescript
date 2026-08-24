@@ -621,6 +621,7 @@ function Message(props: MessageProps) {
 }
 
 type UserLoginVerificationResult = {
+    userId?: string,
     authentication_challenge?: AuthenticationChallengeType,
     challenge_certificat?: string,
     methodesDisponibles?: {activation?: boolean, certificat?: boolean},
@@ -646,25 +647,23 @@ export async function userLoginVerification(username: string): Promise<UserLogin
     if(response.status !== 200) {
         throw new Error(`Error during user verification (status: ${response.status})`);
     }
-    if(response.data.contenu === 'null') {
-        // User is unknown
-        return null;
-    } else {
-        // User is known
-        let content = await JSON.parse(response.data.contenu) as UserLoginVerificationResult;
-        if(content.certificat && userIdb?.request) {
-            const certificate = content.certificat;
-            await receiveCertificate(username, certificate);
+    // User is known
+    let content = await JSON.parse(response.data.contenu) as UserLoginVerificationResult;
+    if(content.certificat && userIdb?.request) {
+        const certificate = content.certificat;
+        await receiveCertificate(username, certificate);
 
-            // Do a new request to check that the back-end will accept activation with this certificate
-            const certificateRequest = userIdb.request;
-            data.fingerprintPkNouveau = undefined;
-            data.fingerprintPkCourant = certificateRequest.publicKeyString;
-            response = await axios({method: 'POST', url: '/auth/get_usager', data, timeout: 20_000 });
-            content = await JSON.parse(response.data.contenu) as UserLoginVerificationResult;
-        }
-        return content;
+        // Do a new request to check that the back-end will accept activation with this certificate
+        const certificateRequest = userIdb.request;
+        data.fingerprintPkNouveau = undefined;
+        data.fingerprintPkCourant = certificateRequest.publicKeyString;
+        response = await axios({method: 'POST', url: '/auth/get_usager', data, timeout: 20_000 });
+        content = await JSON.parse(response.data.contenu) as UserLoginVerificationResult;
     }
+
+    if(!content.userId) return null;  // Unknown user (available for new account)
+
+    return content;
 }
 
 export async function createCertificateRequest(workers: AppWorkers, username: string, userId?: string): Promise<UserCertificateRequest> {
