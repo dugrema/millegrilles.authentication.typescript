@@ -80,7 +80,7 @@ export function WorkerProvider({ children }: { children: React.ReactNode }) {
                                 resolve();
                             }, 5000);
                         });
-                    });
+                    }) as Promise<void>;
 
                 setLoadingPromise(promise);
                 await promise;
