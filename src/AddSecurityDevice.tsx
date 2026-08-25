@@ -121,6 +121,27 @@ function AddDeviceContent(props: AddDeviceContentType) {
 
     return (
         <>
+            <div className='h-30 justify-items-center max-w-96'>
+                {failed?
+                    <p>An error occurred, the device was not added. You may try again later.</p>
+                    :
+                    <>
+                        <p>Click on <span className="text-lg font-bold text-slate-400">{t('buttons.next')}</span> to add a new passkey. Most security key devices are supported: USB, NFC, Mobile, etc.</p>
+                        <p className='pt-2 h-10 text-center text-2xl font-bold text-slate-400'>OR</p>
+                        <p>Use this QR code with your Authenticator App and enter the displayed 6 digit value. Then click on <span className="text-lg font-bold text-slate-400">{t('buttons.next')}</span>.</p>
+                        <div className='grid grid-cols-2 pt-2 gap-x-4'>
+                            <img className='col-span-2 lg:col-span-1 pt-2 pb-2' src={totpQrBase64} alt='Authenticator QR Code' />
+                            <div>
+                                <label htmlFor="totp-code">Authenticator App Code</label>
+                                <input id="totp-code" placeholder='Ex.: 123456' value={totpCode} onChange={totpCodeOnChange} 
+                                    className="bg-slate-700 text-slate-300 hover:bg-slate-500 hover:ring-offset-1 hover:ring-1 focus:bg-indigo-700" />
+                                <p className='col-span-2 text-sm'>Leave empty to add security key (e.g. USB, NFC, Mobile).</p>
+                            </div>
+                        </div>
+                    </>
+                }
+            </div>
+
             <div>
                 <input 
                     id='deactivate-other-keys' type='checkbox' placeholder="The password if provided." autoComplete="off" required
@@ -129,26 +150,8 @@ function AddDeviceContent(props: AddDeviceContentType) {
                     />
                 <label htmlFor='deactivate-other-keys' className='col-span-2'>Also remove <span className='font-semibold'>all other</span> security devices for this account.</label>
             </div>
-            
-            <div className='h-30 justify-items-center max-w-96'>
-                {failed?
-                    <p>An error occurred, the device was not added. You may try again later.</p>
-                    :
-                    <>
-                        <p>Click on {t('buttons.next')} to add a new security key (USB, NFC, Mobile, etc.).</p>
-                        <p className='pt-2 h-10 text-center'>OR</p>
-                        <p>Use this QR code with your Authenticator App and enter the displayed 6 digit value. Then click on {t('buttons.next')}.</p>
-                        <div className='grid grid-cols-2 pt-2'>
-                            <img className='col-span-2' src={totpQrBase64} alt='Authenticator QR Code' />
-                            <label htmlFor="totp-code">Authenticator App Code</label>
-                            <input id="totp-code" placeholder='Ex.: 123456' value={totpCode} onChange={totpCodeOnChange} />
-                            <p className='col-span-2 text-sm'>Leave empty to add security key (e.g. USB, NFC, Mobile).</p>
-                        </div>
-                    </>
-                }
-            </div>
 
-            <div className='grid col-span-1 pt-4 justify-items-center'>
+            <div className='grid col-span-1 pt-2 justify-items-center'>
                 <div>
                     <button onClick={signChallenge} disabled={disabled} 
                         className='btn bg-indigo-800 hover:bg-indigo-600 active:bg-indigo-500'>
