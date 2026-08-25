@@ -188,10 +188,10 @@ function Login() {
         setNotAvailable(null);  // Reset
 
         let timeout = setTimeout(async () => {
-            let userInfo = await userLoginVerification(username);
-            // console.debug("User info", userInfo);
+            const userInfo = await userLoginVerification(username);
+            console.debug("User info", userInfo);
 
-            let webauthnChallenge = userInfo?.authentication_challenge;
+            const webauthnChallenge = userInfo?.authentication_challenge;
             if(!userInfo) {
                 // Unknown user
                 setUnknownUser(true);
@@ -210,11 +210,16 @@ function Login() {
                 setWebauthnReady(true);
                 setNotAvailable(false);
             } else {
+                console.debug("Challenge certificat?", userInfo.challenge_certificat);
                 setWebauthnChallenge(null);
                 setWebauthnReady(false);
                 if(!userInfo?.challenge_certificat) {
                     // There are no recognized methods to log in from this browser.
                     setNotAvailable(true);
+                } else if(userInfo.methodesDisponibles?.certificat) {
+                    // Enables attempt to login to get a recovery code
+                    setNotAvailable(true);
+                    setUnknownUser(false);
                 }
             }
         }, 400);
