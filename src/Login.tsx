@@ -189,7 +189,7 @@ function Login() {
 
         let timeout = setTimeout(async () => {
             const userInfo = await userLoginVerification(username);
-            console.debug("User info", userInfo);
+            // console.debug("User info", userInfo);
 
             const webauthnChallenge = userInfo?.authentication_challenge;
             if(!userInfo) {
@@ -210,7 +210,7 @@ function Login() {
                 setWebauthnReady(true);
                 setNotAvailable(false);
             } else {
-                console.debug("Challenge certificat?", userInfo.challenge_certificat);
+                // console.debug("Challenge certificat?", userInfo.challenge_certificat);
                 setWebauthnChallenge(null);
                 setWebauthnReady(false);
                 if(!userInfo?.challenge_certificat) {
@@ -916,7 +916,7 @@ export async function authenticateConnectionWorker(workers: AppWorkers, username
 
     // Initialize the message factory with the user's information.
     const { privateKey, certificate } = certificateInfo;
-    console.trace("Preparing message factory with ", certificate);
+    // console.trace("Preparing message factory with ", certificate);
     await workers.connection.prepareMessageFactory(privateKey, certificate);
 
     // Authenticate the connection

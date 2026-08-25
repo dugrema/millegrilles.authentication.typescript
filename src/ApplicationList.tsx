@@ -257,7 +257,7 @@ function VerifyCertificateRenewal() {
     }, [workers, ready, username, setCertificateRemoteVersions])
 
     useEffect(()=>{
-        console.debug("Loading username %s, ready %s", username, ready);
+        // console.debug("Loading username %s, ready %s", username, ready);
         // Load local IDB version
         getUser(username)
             .then(async userIdb => {
