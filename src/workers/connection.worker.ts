@@ -42,6 +42,7 @@ export type WebauthChallengeResponse = {
 export type TotpSecretType = {
     correlation: string,
     qr_base64: string,
+    secret_base32: string,
 };
 
 

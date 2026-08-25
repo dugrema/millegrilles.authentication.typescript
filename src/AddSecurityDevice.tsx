@@ -59,6 +59,7 @@ function AddDeviceContent(props: AddDeviceContentType) {
     let [challenge, setChallenge] = useState<RegistrationChallengeType>();
     const [totpCode, setTotpCode] = useState('');
     const [totpQrBase64, setTotpQrBase64] = useState('');
+    const [totpSecretBase32, setTotpSecretBase32] = useState('');
     const [totpCorrelation, setTotpCorrelation] = useState('');
     let [disabled, setDisabled] = useState(false);
     let [failed, setFailed] = useState(false);
@@ -109,6 +110,7 @@ function AddDeviceContent(props: AddDeviceContentType) {
             .then(response=>{
                 // console.debug("Response", response);
                 setTotpQrBase64('data:image/jpeg;base64,' + response.qr_base64);
+                setTotpSecretBase32(response.secret_base32)
                 setTotpCorrelation(response.correlation);
             })
             .catch(err=>console.error("Error getting a new TOTP secret", err));
@@ -117,7 +119,7 @@ function AddDeviceContent(props: AddDeviceContentType) {
                 setChallenge(result);
             })
             .catch(err=>console.error("Error generating webauth challenge", err));
-    }, [workers, setTotpQrBase64, setTotpCorrelation]);
+    }, [workers, setTotpQrBase64, setTotpSecretBase32, setTotpCorrelation]);
 
     return (
         <>
@@ -136,6 +138,8 @@ function AddDeviceContent(props: AddDeviceContentType) {
                                 <input id="totp-code" placeholder='Ex.: 123456' value={totpCode} onChange={totpCodeOnChange} 
                                     className="bg-slate-700 text-slate-300 hover:bg-slate-500 hover:ring-offset-1 hover:ring-1 focus:bg-indigo-700" />
                                 <p className='col-span-2 text-sm'>Leave empty to add security key (e.g. USB, NFC, Mobile).</p>
+                                <p className="pt-2 text-sm">Secret value</p>
+                                <p className="text-xs break-all">{totpSecretBase32}</p>
                             </div>
                         </div>
                     </>
