@@ -71,6 +71,7 @@ function AddDeviceContent(props: AddDeviceContentType) {
     }, [setDeactivateOtherKeys]);
 
     let signChallenge = useCallback(()=>{
+        // console.debug("Sign challenge: ", challenge);
         if(!workers || (!challenge && !totpCode)) return;
 
         setDisabled(true);
@@ -116,6 +117,7 @@ function AddDeviceContent(props: AddDeviceContentType) {
             .catch(err=>console.error("Error getting a new TOTP secret", err));
         getNewDeviceChallenge(workers)
             .then(result => {
+                // console.debug("Device registration challenge: ", result);
                 setChallenge(result);
             })
             .catch(err=>console.error("Error generating webauth challenge", err));

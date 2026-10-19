@@ -541,6 +541,7 @@ function DurationSelectbox(props: DurationSelectBox) {
                 <option value='86400'>{t('labels.1day')}</option>
                 <option value='604800'>{t('labels.1week')}</option>
                 <option value='2678400'>{t('labels.1month')}</option>
+                <option value='7776000'>{t('labels.3months')}</option>
             </select>
         </>
     )
