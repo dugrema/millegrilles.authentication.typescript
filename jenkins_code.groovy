@@ -23,7 +23,10 @@ pipeline {
 
         stage('Build & Package & Deploy') {
             steps {
-                sh "make deploy VERSION_FULL=${VBUILD} ARCHIVE_NAME=${ARCHIVE_NAME}"
+                sh '''
+                export npm_config_registry=${NPM_REGISTRY}
+                make deploy VERSION_FULL=${VBUILD} ARCHIVE_NAME=${ARCHIVE_NAME}
+                '''
             }
         }
     }
