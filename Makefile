@@ -2,7 +2,7 @@
 
 # --- Configuration ---
 # Defaults that can be overridden via command line (e.g., make build VERSION=2027.0)
-VERSION ?= 2026.3
+VERSION ?= 2026.7
 BUILD_NUMBER ?= 1
 VERSION_FULL ?= $(VERSION).$(BUILD_NUMBER)
 ARCHIVE_NAME ?= millegrilles_authentication_typescript
@@ -92,7 +92,7 @@ deploy: package
 			fi; \
 			echo "==> Deploying $$NAME"; \
 			rsync "$(ARTIFACTS_DIR)/$$NAME.$(VERSION_FULL).tar.gz" ${DEPLOY_RSYNC_WEBAPP_DEST}/webapi/${NAME}/; \
-			${DEPLOY_CATALOGUE_UPDATE_COMMAND} --baseurl https://libs.millegrilles.com/archives/webapi --archive archives/webapi/"$$NAME.$(VERSION_FULL).tar.gz"; \
+			${DEPLOY_CATALOGUE_UPDATE_COMMAND} --baseurl ${DEPLOY_ARCHIVE_URL}/webapi --archive archives/webapi/"$$NAME.$(VERSION_FULL).tar.gz"; \
 		fi; \
 	done
 
