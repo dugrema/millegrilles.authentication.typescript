@@ -5,7 +5,7 @@ pipeline {
         string(defaultValue: 'master', name: 'BRANCH')
         string(defaultValue: '2026.7', name: 'VERSION')
         string(defaultValue: 'jenkins-maple', name: 'CREDENTIALS_ID')
-        string(defaultValue: 'ssh://git.maple.maceroc.com/git/millegrilles.authentication.typescript', name: 'GIT_URL')
+        string(defaultValue: 'ssh://git@git.maple.maceroc.com/git/millegrilles.authentication.typescript', name: 'GIT_URL')
         string(defaultValue: 'millegrilles_authentication_typescript', name: 'ARCHIVE_NAME')
     }
 
