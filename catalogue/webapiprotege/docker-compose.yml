@@ -1,6 +1,6 @@
 services:
   webapi:
-    image: nexus.maple.maceroc.com/millegrilles/web_python:2026.7.14
+    image: nexus.maple.maceroc.com/docker_millegrilles/millegrilles/web_python:2026.7.15
     x-millegrilles-certificat:
       roles:
         - protected_webapi
